@@ -9,8 +9,8 @@ jobs:
     # 路径规则、回收站检查、盘符类型都是 Windows 的，只在 Windows 上跑
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
       # 测试不加载 Laya 模型，只需要 Send2Trash（而且测试里会把它替换掉，不会真的删东西）
