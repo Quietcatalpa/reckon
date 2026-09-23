@@ -19,6 +19,7 @@ import config as C
 import decide
 import dupes
 import organize
+import recycle
 import scanner
 from config import norm
 
@@ -192,24 +193,32 @@ class App:
                 if it["kind"] == "dupe" and not os.path.exists(it["dup_of"]):
                     raise RuntimeError("保留的那份已经不在了，为安全起见不删除这份")
                 paths = it.get("paths") or [it["path"]]
-                n_ok = 0
-                last_err = None
+                n_ok, problems = 0, []
                 for p in paths:
                     if C.is_protected(norm(p)):
                         raise RuntimeError("位于受保护目录")
                     if not os.path.exists(p):
                         continue
-                    if it["kind"] != "group":
+                    if os.path.isdir(p):
+                        size = scanner.dir_stats(p)[0]
+                    else:
                         st = os.stat(p)
-                        if st.st_size != it["size"] or int(st.st_mtime) != int(it["mtime"]):
+                        size = st.st_size
+                        if it["kind"] != "group" and (st.st_size != it["size"] or int(st.st_mtime) != int(it["mtime"])):
                             raise RuntimeError("文件在扫描后被修改过，请重新扫描")
+                    # 确认一定能进回收站（本机硬盘、回收站开着、没超过容量上限），否则 Windows 会直接永久删除
+                    why = recycle.check(p, size)
+                    if why:
+                        problems.append(why)
+                        continue
                     try:
                         send2trash(p)
                         n_ok += 1
                     except OSError as e:
-                        last_err = e
-                if last_err and n_ok == 0:
-                    raise last_err
+                        problems.append(f"删不掉（可能正在被程序使用）：{e.strerror or e}")
+                if problems:
+                    head = f"已移到回收站 {n_ok} 个，另有 {len(problems)} 个没处理：" if n_ok else ""
+                    raise RuntimeError(head + problems[0])
                 it["trashed"] = True
                 done.append(it["id"])
             except Exception as e:  # noqa: BLE001

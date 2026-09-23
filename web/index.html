@@ -564,8 +564,8 @@ async function loadHistory() {
   const h = (await api("/api/organize/history")).history;
   $("hist").innerHTML = h.length ? h.map((x, i) => `<div class="hist">
     <span>${new Date(x.time * 1000).toLocaleString()}</span>
-    <span class="grow">移动了 ${x.count} 项：${esc(x.sample.join("、"))}${x.count > 3 ? " 等" : ""}</span>
-    ${x.undone ? `<span class="sub">已撤销</span>` : `<button data-undo="${esc(x.id)}">撤销</button>`}</div>`).join("")
+    <span class="grow">移动了 ${x.count} 项：${esc(x.sample.join("、"))}${x.count > 3 ? " 等" : ""}${x.partial ? `（还有 ${x.left} 项没放回）` : ""}</span>
+    ${x.undone ? `<span class="sub">已撤销</span>` : `<button data-undo="${esc(x.id)}">${x.partial ? "再试一次" : "撤销"}</button>`}</div>`).join("")
     : `<div class="sub">还没有整理过</div>`;
 }
 $("hist").addEventListener("click", async (e) => {
@@ -573,7 +573,7 @@ $("hist").addEventListener("click", async (e) => {
   if (!confirm("把这次整理移动的文件全部放回原处？")) return;
   const r = await api("/api/organize/undo", { id: b.dataset.undo });
   if (plan) await loadPlan();  // 重新拉取方案，让放回原处的行恢复成未移动
-  toast(`已放回 ${r.restored} 项。` + (r.demo ? DEMO_NOTE : "") + (r.failed.length ? `\n${r.failed.length} 项没能放回：\n` + r.failed.slice(0, 5).map((f) => `· ${f.name}：${f.error}`).join("\n") : ""));
+  toast(`已放回 ${r.restored} 项。` + (r.demo ? DEMO_NOTE : "") + (r.failed.length ? `\n${r.failed.length} 项没能放回（处理好后可以点「再试一次」）：\n` + r.failed.slice(0, 5).map((f) => `· ${f.name}：${f.error}`).join("\n") : ""));
   loadHistory();
 });
 

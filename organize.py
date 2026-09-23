@@ -314,9 +314,33 @@ def _unique(path):
     raise RuntimeError("目标位置重名文件太多")
 
 
+def _save_history(path, h):
+    """先写临时文件再替换，中途断电也不会留下半截的记录。"""
+    tmp = path + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        json.dump(h, f, ensure_ascii=False, indent=1)
+    os.replace(tmp, path)
+
+
+def _new_history_path():
+    os.makedirs(HISTORY_DIR, exist_ok=True)
+    base = time.strftime("%Y%m%d-%H%M%S")
+    hid, k = base, 1
+    while os.path.exists(os.path.join(HISTORY_DIR, hid + ".json")):
+        k += 1
+        hid = f"{base}-{k}"
+    return hid, os.path.join(HISTORY_DIR, hid + ".json")
+
+
 def execute(items, moves):
-    """moves: [{id, dest}]。去处必须是方案里给出的选项之一。"""
-    records, done, failed, created = [], [], [], []
+    """moves: [{id, dest}]。去处必须是方案里给出的选项之一。
+
+    每移动一项之前先把“要从哪移到哪”写进记录，移动失败再删掉这条。
+    这样即使程序中途被关掉，已经移走的东西也都在记录里，可以撤销。
+    """
+    done, failed = [], []
+    hid = hpath = None
+    h = {"time": time.time(), "total": 0, "records": [], "created_dirs": [], "undone": False, "restored": 0}
     for m in moves:
         it = items[m["id"]] if 0 <= m["id"] < len(items) else None
         try:
@@ -332,23 +356,41 @@ def execute(items, moves):
                 raise RuntimeError("不能移到自己里面")
             if not os.path.exists(src):
                 raise RuntimeError("原文件已经不在了")
-            if not os.path.isdir(dest):
+            if hpath is None:
+                hid, hpath = _new_history_path()
+            made_dir = not os.path.isdir(dest)
+            if made_dir:
                 os.makedirs(dest)
-                created.append(dest)
+                h["created_dirs"].append(dest)
             final = _unique(os.path.join(dest, it["name"]))
-            shutil.move(src, final)
-            records.append({"src": src, "dst": final})
+            rec = {"src": src, "dst": final}
+            h["records"].append(rec)
+            h["total"] += 1
+            if len(h.setdefault("sample", [])) < 3:
+                h["sample"].append(it["name"])
+            _save_history(hpath, h)  # 先记下来再动手
+            try:
+                shutil.move(src, final)
+            except Exception:
+                h["records"].remove(rec)
+                h["total"] -= 1
+                if it["name"] in h["sample"]:
+                    h["sample"].remove(it["name"])
+                if made_dir:
+                    try:
+                        os.rmdir(dest)
+                        h["created_dirs"].remove(dest)
+                    except OSError:
+                        pass
+                _save_history(hpath, h)
+                raise
             it["moved_to"] = final
             done.append(it["id"])
         except Exception as e:  # noqa: BLE001
             failed.append({"id": m.get("id"), "error": str(e)})
-    hid = None
-    if records:
-        os.makedirs(HISTORY_DIR, exist_ok=True)
-        hid = time.strftime("%Y%m%d-%H%M%S")
-        with open(os.path.join(HISTORY_DIR, hid + ".json"), "w", encoding="utf-8") as f:
-            json.dump({"time": time.time(), "records": records, "created_dirs": created, "undone": False},
-                      f, ensure_ascii=False, indent=1)
+    if hpath and not h["records"]:
+        os.remove(hpath)  # 一项都没移成，不留空记录
+        hid = None
     moved = {r_id: items[r_id]["moved_to"] for r_id in done}
     return {"done": done, "moved": moved, "failed": failed, "history": hid}
 
@@ -357,44 +399,57 @@ def list_history(limit=10):
     if not os.path.isdir(HISTORY_DIR):
         return []
     out = []
-    for fn in sorted(os.listdir(HISTORY_DIR), reverse=True)[:limit]:
+    names = [fn for fn in os.listdir(HISTORY_DIR) if fn.endswith(".json")]
+    for fn in sorted(names, reverse=True)[:limit]:
         try:
             with open(os.path.join(HISTORY_DIR, fn), encoding="utf-8") as f:
                 h = json.load(f)
         except (OSError, ValueError):
             continue
-        out.append({"id": fn[:-5], "time": h["time"], "count": len(h["records"]), "undone": h["undone"],
-                    "sample": [os.path.basename(r["src"]) for r in h["records"][:3]]})
+        out.append({"id": fn[:-5], "time": h["time"], "count": h.get("total", len(h["records"])),
+                    "undone": h["undone"], "left": 0 if h["undone"] else len(h["records"]),
+                    "partial": bool(h.get("restored")) and not h["undone"],
+                    "sample": h.get("sample") or [os.path.basename(r["src"]) for r in h["records"][:3]]})
     return out
 
 
 def undo(hid):
-    if not re.fullmatch(r"\d{8}-\d{6}", hid or ""):
+    """倒序放回原处。放不回去的留在记录里，下次可以再撤销；全部放回后才算撤销完成。"""
+    if not re.fullmatch(r"\d{8}-\d{6}(-\d+)?", hid or ""):
         raise ValueError("无效的记录")
     fn = os.path.join(HISTORY_DIR, hid + ".json")
     with open(fn, encoding="utf-8") as f:
         h = json.load(f)
     if h["undone"]:
         return {"restored": 0, "restored_paths": [], "failed": [], "already": True}
-    restored, failed, paths = 0, [], []
+    restored, failed, paths, remaining = 0, [], [], []
     for r in reversed(h["records"]):
+        src_there, dst_there = os.path.exists(r["src"]), os.path.exists(r["dst"])
         try:
-            if not os.path.exists(r["dst"]):
-                raise RuntimeError("整理后的文件已经不在了")
-            if os.path.exists(r["src"]):
-                raise RuntimeError("原位置已经有同名文件")
-            os.makedirs(os.path.dirname(r["src"]), exist_ok=True)
-            shutil.move(r["dst"], r["src"])
-            restored += 1
-            paths.append(r["src"])
+            if dst_there and not src_there:
+                os.makedirs(os.path.dirname(r["src"]), exist_ok=True)
+                shutil.move(r["dst"], r["src"])
+                restored += 1
+                paths.append(r["src"])
+            elif src_there and not dst_there:
+                # 已经在原处了（程序在移动前被关掉，或之前已放回），不用处理
+                paths.append(r["src"])
+            elif src_there and dst_there:
+                raise RuntimeError("原位置和整理后的位置都有这个名字，请手动确认要保留哪个")
+            else:
+                raise RuntimeError("整理后的文件已经不在了（可能被移动或删除）")
         except Exception as e:  # noqa: BLE001
             failed.append({"name": os.path.basename(r["src"]), "error": str(e)})
-    for d in sorted(h.get("created_dirs", []), key=len, reverse=True):
-        try:
-            os.rmdir(d)  # 只删整理时新建、现在又空了的文件夹
-        except OSError:
-            pass
-    h["undone"] = True
-    with open(fn, "w", encoding="utf-8") as f:
-        json.dump(h, f, ensure_ascii=False, indent=1)
-    return {"restored": restored, "restored_paths": paths, "failed": failed, "already": False}
+            remaining.insert(0, r)
+    h["records"] = remaining
+    h["restored"] = h.get("restored", 0) + restored
+    h["undone"] = not remaining
+    if h["undone"]:
+        for d in sorted(h.get("created_dirs", []), key=len, reverse=True):
+            try:
+                os.rmdir(d)  # 只删整理时新建、现在又空了的文件夹
+            except OSError:
+                pass
+    _save_history(fn, h)
+    return {"restored": restored, "restored_paths": paths, "failed": failed, "already": False,
+            "left": len(remaining)}

@@ -1,7 +1,8 @@
 # 决策模型（会一并安装 torch、transformers、huggingface_hub）
 laya>=0.3.6
-# 移到回收站
+# 移到回收站（pywin32 让 Send2Trash 用更安全的系统接口；另外删除前本工具会检查回收站容量）
 Send2Trash>=1.8
+pywin32>=306; sys_platform == "win32"
 # 读取文档内容片段
 python-docx>=1.1
 python-pptx>=1.0
