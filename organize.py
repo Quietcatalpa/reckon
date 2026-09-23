@@ -90,6 +90,26 @@ def build_index(root, max_depth=3, limit=3000):
     return out
 
 
+def program_dir_of(path):
+    """path 本身或它的某一层上级是软件安装目录 / 解压的软件 / conda 环境时，返回那个目录。
+
+    软件目录里的 exe、dll、配置文件被挪走，软件就打不开了，所以整理时整棵树都不碰。
+    判断规则和扫描时跳过软件目录用的是同一套（卸载程序、exe + 多个 dll、Electron 应用、conda-meta）。
+    """
+    d = path if os.path.isdir(path) else os.path.dirname(path)
+    while True:
+        try:
+            names = {n.lower() for n in os.listdir(d)}
+        except OSError:
+            names = set()
+        if names & C.UNINSTALL_MARKERS or "conda-meta" in names or scanner._looks_like_program(d, names):
+            return d
+        parent = os.path.dirname(d)
+        if parent == d:
+            return None
+        d = parent
+
+
 def _forbidden_source(np_):
     parts = np_.rstrip("\\").split("\\")
     return len(parts) == 1 or np_ == norm(C.HOME) or any(under(np_, b) for b in C.APPDATA_NS)
@@ -142,6 +162,11 @@ def collect_units(sources, target_root):
             continue
         if C.is_protected(np_) or _forbidden_source(np_):
             notes.append(f"为安全起见不整理这个位置：{src}")
+            continue
+        prog = program_dir_of(src)
+        if prog:
+            where = "本身就是软件目录" if norm(prog) == np_ else f"在软件目录「{prog}」里面"
+            notes.append(f"「{src}」{where}，移动里面的文件会让软件打不开，已跳过")
             continue
         if os.path.isdir(src):
             # 整理目标文件夹自身时，它的第一层子文件夹就是分类，不动

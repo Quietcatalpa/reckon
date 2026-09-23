@@ -35,6 +35,21 @@ def _full(path, size):
     return h.hexdigest(), False
 
 
+def same_content(a, b, stop=None):
+    """逐块完整比对两个文件，遇到第一处不同就停。删除重复副本前用它做最终确认（不依赖扫描时的抽样结果）。"""
+    if os.path.getsize(a) != os.path.getsize(b):
+        return False
+    with open(a, "rb") as fa, open(b, "rb") as fb:
+        while True:
+            if stop is not None and stop.is_set():
+                return False
+            x, y = fa.read(4 * CHUNK), fb.read(4 * CHUNK)
+            if x != y:
+                return False
+            if not x:
+                return True
+
+
 def _keep_score(f):
     """分数越高越应该保留：整理过的个人目录优先，下载/临时目录和“副本”命名靠后。"""
     np_ = norm(f["path"])

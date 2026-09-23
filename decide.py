@@ -4,6 +4,7 @@ import os
 import threading
 import time
 import warnings
+import zipfile
 
 import config as C
 import extract
@@ -116,6 +117,52 @@ def _rec(p):
     return "delete" if p >= DELETE_AT else "review" if p >= REVIEW_AT else "keep"
 
 
+def _zip_name(info):
+    """中文 Windows 打的 zip 常用 GBK 存文件名却不打 UTF-8 标记，Python 会按 cp437 解出乱码，这里还原。"""
+    name = info.filename
+    if not info.flag_bits & 0x800:
+        try:
+            name = name.encode("cp437").decode("gbk")
+        except (UnicodeEncodeError, UnicodeDecodeError):
+            pass
+    return name.replace("\\", "/")
+
+
+def archive_status(path, max_entries=20000):
+    """压缩包旁边的同名文件夹：('full', n) 已核对全部文件都解压了；('folder', 0) 有同名文件夹但没核对上；(None, 0) 没有。
+
+    只有 zip 能核对（看文件列表和大小）；rar/7z 等读不了目录，一律只算线索。
+    解压时常见两种结构：同名文件夹里直接是内容，或者多套了一层同名文件夹，两种都认。
+    """
+    stem = os.path.splitext(path)[0]
+    if not os.path.isdir(stem):
+        return None, 0
+    if not path.lower().endswith(".zip"):
+        return "folder", 0
+    try:
+        with zipfile.ZipFile(path) as z:
+            entries = [(_zip_name(i).split("/"), i.file_size) for i in z.infolist() if not i.is_dir()]
+    except (OSError, zipfile.BadZipFile, RuntimeError, ValueError):
+        return "folder", 0
+    if not entries or len(entries) > max_entries:
+        return "folder", 0
+
+    def complete(strip_first):
+        for parts, size in entries:
+            if strip_first:
+                if len(parts) < 2:
+                    return False
+                parts = parts[1:]
+            try:
+                if os.path.getsize(os.path.join(stem, *parts)) != size:
+                    return False
+            except OSError:
+                return False
+        return True
+
+    return ("full", len(entries)) if complete(False) or complete(True) else ("folder", 0)
+
+
 def rule_prior(path, np_, ftype, age, name_l):
     """返回 (规则把握, 理由, 是否跳过模型, 是否封顶在“需要你看”)。"""
     reasons = []
@@ -159,11 +206,16 @@ def rule_prior(path, np_, ftype, age, name_l):
     elif ftype in C.MEDIA_TYPES:
         p = 0.45 if age >= 365 else 0.2
         reasons.append("超过一年未修改的媒体文件" if age >= 365 else "媒体文件只按时间判断")
+    elif ftype == "备份":
+        reasons.append("备份文件，可能是唯一的一份，需要你确认")
     elif ftype == "压缩包":
-        stem = os.path.splitext(path)[0]
-        if os.path.isdir(stem):
+        status, n = archive_status(path)
+        if status == "full":
             p = max(p, 0.85)
-            reasons.append("旁边已有解压出来的同名文件夹")
+            reasons.append(f"已核对：压缩包里的 {n} 个文件都已解压在旁边的同名文件夹里")
+        elif status == "folder":
+            p += 0.05
+            reasons.append("旁边有同名文件夹（没能核对是否完整解压，只作参考）")
 
     if ftype not in C.MEDIA_TYPES and ftype != "安装包":
         if age > 365:
@@ -177,8 +229,9 @@ def rule_prior(path, np_, ftype, age, name_l):
         reasons.append("文件名像是副本")
     if in_appdata:
         p = min(p, 0.5)
-    # 上限：个人目录里的文档/代码/数据、聊天软件收到的文件（安装包和日志除外）最多到“需要你看”
-    capped = (personal and ftype in ("文档", "代码", "数据")) or (in_chat and ftype not in ("安装包", "日志缓存"))
+    # 上限：个人目录里的文档/代码/数据、聊天软件收到的文件（安装包和日志除外）、所有备份文件，最多到“需要你看”
+    capped = ((personal and ftype in ("文档", "代码", "数据")) or (in_chat and ftype not in ("安装包", "日志缓存"))
+              or ftype == "备份")
     return min(max(p, 0.02), 0.98), reasons, in_appdata, capped
 
 
@@ -209,9 +262,11 @@ def build_items(scan, dup_groups, judge, opts, on_progress, stop):
         if g["size"] < (1 << 20):
             continue
         age = int((now - g["newest"]) / 86400) if g["newest"] else 0
+        # strict：临时文件、解压的软件、模型缓存等，删除前要确认扫描后没有新变化；stamps 是每个路径扫描时的最近修改时间
         add({"kind": "group", "name": g["label"], "path": g["paths"][0], "paths": g["paths"],
              "size": g["size"], "count": g["count"], "mtime": g["newest"], "age": age,
              "type": "缓存目录", "topic": None, "p": g["p"], "rec": _rec(g["p"]),
+             "strict": g.get("strict", False), "stamps": g.get("stamps", []),
              "reasons": [g["hint"], f"{g['count']:,} 个文件", _age_text(age)], "laya": None})
 
     # 2) 重复文件：保留一份，其余建议删除
@@ -228,11 +283,15 @@ def build_items(scan, dup_groups, judge, opts, on_progress, stop):
             if f is None:
                 continue
             age = int((now - f["mtime"]) / 86400)
-            p = 0.88 if dg["exact"] else 0.78
+            # 超大文件只抽样比对过，只能算疑似重复，放进“需要你看”；删除前都会把两份完整比对一遍
+            p = 0.88 if dg["exact"] else 0.6
+            keep = by_path.get(dg["keep"]) or {}
             it = add({"kind": "dupe", "name": os.path.basename(cp), "path": cp, "size": f["size"],
                       "mtime": f["mtime"], "age": age, "type": C.file_type(os.path.splitext(cp)[1].lower()),
                       "topic": keyword_topic(cp), "p": p, "rec": _rec(p), "dup_of": dg["keep"], "dup_group": gi,
-                      "reasons": ["与保留的那份内容完全相同" if dg["exact"] else "与保留的那份抽样比对一致（超大文件）"],
+                      "exact": dg["exact"], "keep_mtime": keep.get("mtime"),
+                      "reasons": ["与保留的那份内容完全相同（完整比对）" if dg["exact"]
+                                  else "疑似重复：超大文件只抽样比对过，删除前会完整比对"],
                       "laya": None})
             ids.append(it["id"])
         if ids:

@@ -19,6 +19,23 @@ import recycle  # noqa: E402
 import server  # noqa: E402
 
 
+def make_app(results=None, plan=None):
+    """不启动服务、不加载模型的 App，用来直接测试 trash / run_organize 等方法。"""
+    import threading
+    app = server.App.__new__(server.App)
+    app.demo = False
+    app.lock = threading.Lock()
+    app.job = {"running": False}
+    app.op_running = False
+    app.results = results
+    if results is not None:
+        results.setdefault("scan_id", "scan-1")
+    app.plan = plan
+    if plan is not None:
+        plan.setdefault("plan_id", "plan-1")
+    return app
+
+
 def write(path, data):
     mode = "wb" if isinstance(data, bytes) else "w"
     with open(path, mode, **({} if mode == "wb" else {"encoding": "utf-8"})) as f:
@@ -60,10 +77,8 @@ class TrashTest(unittest.TestCase):
         self.path = os.path.join(self.tmp, "big.iso")
         write(self.path, b"0" * 100)
         st = os.stat(self.path)
-        self.app = server.App.__new__(server.App)
-        self.app.demo = False
-        self.app.results = {"items": [{"id": 0, "kind": "file", "path": self.path, "size": st.st_size,
-                                       "mtime": st.st_mtime, "name": "big.iso"}]}
+        self.app = make_app({"items": [{"id": 0, "kind": "file", "path": self.path, "size": st.st_size,
+                                        "mtime": st.st_mtime, "name": "big.iso"}]})
         self.results_file = os.path.join(self.tmp, "last_scan.json")
 
     def tearDown(self):
@@ -74,7 +89,7 @@ class TrashTest(unittest.TestCase):
         with mock.patch.object(recycle, "check", return_value="超过了回收站的容量上限"), \
                 mock.patch("send2trash.send2trash", side_effect=sent.append), \
                 mock.patch.object(server.C, "RESULTS_FILE", self.results_file):
-            r = self.app.trash([0])
+            r = self.app.trash([0], "scan-1")
         self.assertEqual(r["done"], [])
         self.assertIn("容量上限", r["failed"][0]["error"])
         self.assertEqual(sent, [])
@@ -85,7 +100,7 @@ class TrashTest(unittest.TestCase):
         with mock.patch.object(recycle, "check", return_value=None), \
                 mock.patch("send2trash.send2trash", side_effect=sent.append), \
                 mock.patch.object(server.C, "RESULTS_FILE", self.results_file):
-            r = self.app.trash([0])
+            r = self.app.trash([0], "scan-1")
         self.assertEqual(r["done"], [0])
         self.assertEqual(sent, [self.path])
 

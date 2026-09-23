@@ -1,0 +1,20 @@
+name: tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    # 路径规则、回收站检查、盘符类型都是 Windows 的，只在 Windows 上跑
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      # 测试不加载 Laya 模型，只需要 Send2Trash（而且测试里会把它替换掉，不会真的删东西）
+      - run: pip install Send2Trash
+      - run: python -m unittest discover -s tests -v
+        env:
+          PYTHONIOENCODING: utf-8

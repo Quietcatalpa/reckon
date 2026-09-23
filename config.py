@@ -119,7 +119,8 @@ TYPE_EXTS = {
     "文档": ".doc .docx .pdf .ppt .pptx .xls .xlsx .xlsm .txt .md .rtf .odt .wps .et .dps .tex .caj .epub .mobi",
     "代码": ".py .ipynb .js .ts .jsx .tsx .java .c .cpp .h .hpp .m .r .go .rs .cs .html .css .sql .sh .bat .ps1 .json .xml .yaml .yml .ini .cfg .toml",
     "数据": ".csv .tsv .parquet .feather .h5 .hdf5 .npy .npz .mat .pkl .pickle .pt .pth .ckpt .safetensors .onnx .bin .db .sqlite .dta .sav",
-    "日志缓存": ".log .tmp .temp .dmp .mdmp .bak .old .cache .crdownload .part .partial .etl .download "
+    "备份": ".bak .old .backup .bk .orig",
+    "日志缓存": ".log .tmp .temp .dmp .mdmp .cache .crdownload .part .partial .etl .download "
             ".qkdownloading .downloading .td .xltd .bc! .aria2 .!ut",
     "安装包": ".exe .msi .msix .appx .apk .dmg .iso .img .xapk",
     "压缩包": ".zip .rar .7z .tar .gz .tgz .bz2 .xz",

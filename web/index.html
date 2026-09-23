@@ -65,6 +65,8 @@ button:disabled { opacity: .45; cursor: default; }
 .nm { font-weight: 600; word-break: break-all; }
 .pth { color: var(--muted); font-size: 12px; word-break: break-all; }
 .why { font-size: 12px; color: var(--muted); margin-top: 2px; }
+.ev { display: inline-block; font-size: 11px; color: var(--muted); border: 1px solid var(--line); border-radius: 4px; padding: 0 5px; margin-top: 4px; }
+.drive.off { opacity: .7; }
 .chip { display: inline-block; font-size: 11px; padding: 1px 7px; border-radius: 99px; background: var(--soft); color: var(--accent); margin-right: 4px; font-weight: 400; }
 .sz { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .sz small { display: block; color: var(--muted); font-size: 11px; }
@@ -148,9 +150,9 @@ input[type=text] { padding: 6px 8px; border: 1px solid var(--line); border-radiu
       <select id="ftype"></select>
       <select id="ftopic"></select>
       <select id="sort">
-        <option value="gain">按“可释放 × 把握”排序</option>
+        <option value="gain">按“可释放 × 建议分”排序</option>
         <option value="size">按大小排序</option>
-        <option value="p">按删除把握排序</option>
+        <option value="p">按清理建议分排序</option>
         <option value="age">按多久没动排序</option>
       </select>
       <input type="search" id="q" placeholder="搜索文件名或路径">
@@ -238,13 +240,17 @@ const TABS = [
   ["delete", "建议删除"], ["review", "需要你看"], ["dupes", "重复文件"], ["group", "缓存目录"], ["keep", "建议保留"], ["all", "全部"],
 ];
 
-let results = null, tab = "delete", shown = 300, selected = new Set(), running = false;
+let results = null, tab = "delete", shown = 300, selected = new Set(), running = false, busy = false;
 
 async function api(path, body) {
   const opt = { headers: { "X-Token": TOKEN } };
   if (body !== undefined) { opt.method = "POST"; opt.headers["Content-Type"] = "application/json"; opt.body = JSON.stringify(body); }
   const r = await fetch(path, opt);
-  if (!r.ok) throw new Error(r.status);
+  if (!r.ok) {
+    let msg = String(r.status);
+    try { msg = (await r.json()).error || msg; } catch {}
+    throw new Error(msg);
+  }
   return r.json();
 }
 
@@ -256,11 +262,14 @@ function toast(text) {
 let drivesDrawn = false;
 function drawDrives(drives) {
   if (drivesDrawn) return; drivesDrawn = true;
+  const KIND = { removable: "U 盘 / 移动硬盘", network: "网络盘", ramdisk: "内存盘" };
   $("drives").innerHTML = drives.map((d) => {
-    const on = /^[CD]:/.test(d.root) ? "checked" : "";
-    return `<label class="drive"><input type="checkbox" value="${esc(d.root)}" ${on}>
-      <div><b>${esc(d.root.slice(0, 2))} 盘</b> <span class="sub">剩余 ${gb(d.free)} / ${gb(d.total)}</span>
-      <div class="meter"><i style="width:${(d.used / d.total * 100).toFixed(0)}%"></i></div></div></label>`;
+    const fixed = d.type === "fixed";
+    const size = d.total ? `剩余 ${gb(d.free)} / ${gb(d.total)}` : "";
+    const note = fixed ? "" : `<div class="sub">${KIND[d.type] || d.type} · 没有回收站，只能查看不能删除</div>`;
+    return `<label class="drive ${fixed ? "" : "off"}"><input type="checkbox" value="${esc(d.root)}" ${fixed ? "checked" : ""}>
+      <div><b>${esc(d.root.slice(0, 2))} 盘</b> <span class="sub">${size}</span>
+      ${d.total ? `<div class="meter"><i style="width:${(d.used / d.total * 100).toFixed(0)}%"></i></div>` : ""}${note}</div></label>`;
   }).join("");
 }
 
@@ -277,7 +286,7 @@ async function poll() {
     const s = await api("/api/state");
     drawDrives(s.drives); drawModel(s.model);
     const j = s.job, was = running;
-    running = j.running;
+    running = j.running; busy = s.busy;
     $("scan").disabled = running; $("stop").disabled = !(running && j.kind === "scan"); $("plan").disabled = running;
     const org = j.kind === "organize";
     const pr = $(org ? "oprog" : "prog");
@@ -288,7 +297,15 @@ async function poll() {
     else {
       if (!results && s.has_results) await loadResults();
       if (!plan && s.has_plan) await loadPlan();
+      // 别的页面重新扫描或生成了方案：这里自动换成最新的，旧的勾选全部作废
+      if (!running && results && s.scan_id && results.scan_id !== s.scan_id) {
+        await loadResults(); toast("扫描结果已经更新（可能是在别的页面扫描的），这里已自动刷新，请重新勾选");
+      }
+      if (!running && plan && s.plan_id && plan.plan_id !== s.plan_id) {
+        await loadPlan(); toast("整理方案已经更新，这里已自动刷新，请重新勾选");
+      }
     }
+    drawSel(); if (plan) drawOsel();
   } catch (e) { $("msg").textContent = "连不上本地服务，请确认启动窗口还开着。"; }
   setTimeout(poll, running ? 700 : 3000);
 }
@@ -337,6 +354,19 @@ function drawTiles() {
     `<div class="tile ${k === tab ? "on" : ""}" data-tab="${k}"><span>${label}</span><b>${gb(sum(defs[k]))}</b><span>${cnt(defs[k])} 项</span></div>`).join("");
 }
 
+// 这个分数是规则和模型加权算出来的排序依据，不是“删了没事”的概率，所以叫“清理建议分”并写明依据
+function evidence(it) {  // [短标签, 鼠标悬停时的完整说明]
+  if (it.kind === "dupe") {
+    const sampled = it.exact === false || it.reasons.some((r) => r.includes("抽样"));
+    return sampled ? ["疑似重复", "超大文件只抽样比对过，删除前会把两份完整比对一遍"] : ["完整比对确认", "两份文件逐字节完整比对过，内容完全相同"];
+  }
+  if (it.kind === "group") return ["规则判断", "按缓存目录规则判断，没有经过模型"];
+  if (it.laya) return it.laya.read ? ["规则 + 读过内容", "规则和 Laya 一起判断，Laya 读过文件开头的内容片段"]
+    : ["规则 + 文件信息", "规则和 Laya 一起判断，Laya 只看了文件名、位置、大小和时间"];
+  return ["只按规则", "只按位置、类型、时间等规则判断，没有经过模型"];
+}
+const evTag = (it) => { const [t, tip] = evidence(it); return `<div class="ev" title="${esc(tip)}">${esc(t)}</div>`; };
+
 function row(it) {
   const color = it.rec === "delete" ? "var(--del)" : it.rec === "review" ? "var(--rev)" : "var(--keep)";
   const chips = `<span class="chip">${esc(it.type)}</span>` + (it.topic ? `<span class="chip">${esc(it.topic)}</span>` : "");
@@ -349,7 +379,7 @@ function row(it) {
     <div class="sz">${gb(it.size)}<small>${it.age} 天</small></div>
     <div class="verdict"><span class="badge ${it.rec}">${it.trashed ? "已移到回收站" : REC[it.rec]}</span>
       <div class="pbar"><i style="width:${(it.p * 100).toFixed(0)}%;background:${color}"></i></div>
-      <span class="sub">删除把握 ${(it.p * 100).toFixed(0)}%</span></div>
+      <span class="sub">清理建议分 ${(it.p * 100).toFixed(0)}</span>${evTag(it)}</div>
     <button class="icon" title="在资源管理器中显示" data-reveal="${it.id}">📂</button>
   </div>`;
 }
@@ -359,7 +389,7 @@ function drawDupes(list) {
   list.forEach((it) => (groups[it.dup_group] ||= []).push(it));
   return Object.values(groups).map((copies) => {
     const d = copies[0], total = copies.reduce((a, c) => a + c.size, 0);
-    return `<div class="dg"><h4>${copies.length + 1} 份相同的文件 · 每份 ${gb(d.size)} · 可释放 ${gb(total)}</h4>
+    return `<div class="dg"><h4>${copies.length + 1} 份相同的文件 · 每份 ${gb(d.size)} · 可释放 ${gb(total)} · <span class="ev" title="${esc(evidence(d)[1])}">${esc(evidence(d)[0])}</span></h4>
       <div class="keep">✔ 保留：${esc(d.dup_of)}</div>
       ${copies.map((c) => `<label class="copy"><input type="checkbox" data-id="${c.id}" ${selected.has(c.id) ? "checked" : ""} ${c.trashed ? "disabled" : ""}>
         <span style="${c.trashed ? "text-decoration:line-through;opacity:.5" : ""}">${esc(c.path)}</span></label>`).join("")}</div>`;
@@ -375,6 +405,9 @@ function render() {
   else html = list.slice(0, shown).map(row).join("") +
     (list.length > shown ? `<button class="more" id="more">再显示 300 项（共 ${list.length} 项）</button>` : "");
   $("list").innerHTML = html;
+  const n = list.filter((i) => !i.trashed).length;
+  $("selall").textContent = `全选筛选结果（${n} 项）`;
+  $("selall").title = list.length > shown ? `页面上只显示了前 ${shown} 项，全选会选中筛选出的全部 ${n} 项` : "";
   drawSel();
 }
 
@@ -382,7 +415,7 @@ function drawSel() {
   const items = [...selected].map((id) => results.items[id]);
   const size = items.reduce((a, i) => a + i.size, 0);
   $("sel").textContent = items.length ? `已选 ${items.length} 项，共 ${gb(size)}` : "未选择";
-  $("trash").disabled = !items.length;
+  $("trash").disabled = !items.length || running || busy;
 }
 
 $("tiles").addEventListener("click", (e) => {
@@ -413,20 +446,34 @@ $("scan").onclick = async () => {
 };
 $("stop").onclick = () => api("/api/stop", {});
 
+function summarize(items, key) {
+  const g = {};
+  items.forEach((i) => { const k = key(i); (g[k] ||= [0, 0]); g[k][0]++; g[k][1] += i.size; });
+  return Object.entries(g).map(([k, [n, size]]) => `· ${k}：${n} 项，${gb(size)}`).join("\n");
+}
+
 $("trash").onclick = async () => {
   const ids = [...selected];
   const items = ids.map((id) => results.items[id]);
   const size = items.reduce((a, i) => a + i.size, 0);
   const risky = items.filter((i) => i.rec === "keep").length;
-  let text = `将 ${ids.length} 项（${gb(size)}）移到回收站。\n在回收站里可以恢复；确认没问题后再清空回收站才会真正腾出空间。`;
-  if (risky) text += `\n\n注意：其中 ${risky} 项模型建议保留。`;
+  const visible = new Set((tab === "dupes" ? filtered() : filtered().slice(0, shown)).map((i) => i.id));
+  const hidden = ids.filter((id) => !visible.has(id)).length;
+  let text = `将 ${ids.length} 项（${gb(size)}）移到回收站：\n` +
+    summarize(items, (i) => i.kind === "dupe" ? "重复文件" : i.kind === "group" ? "缓存目录" : REC[i.rec]) +
+    `\n\n在回收站里可以恢复；确认没问题后再清空回收站才会真正腾出空间。重复文件删除前会再完整比对一次。`;
+  if (hidden) text += `\n\n其中 ${hidden} 项不在当前显示的列表里（在别的栏目，或还没展开）。`;
+  if (risky) text += `\n注意：其中 ${risky} 项是“建议保留”的。`;
   if (!confirm(text)) return;
   $("trash").disabled = true;
-  const r = await api("/api/trash", { ids });
+  let r;
+  try { r = await api("/api/trash", { ids, scan_id: results.scan_id }); }
+  catch (e) { toast("操作失败：" + e.message); drawSel(); return; }
+  if (r.stale) { await loadResults(); toast(r.failed[0].error); return; }
   r.done.forEach((id) => { results.items[id].trashed = true; selected.delete(id); });
   r.failed.forEach((f) => selected.delete(f.id));
   let msg = `已移到回收站 ${r.done.length} 项。` + (r.demo ? DEMO_NOTE : "");
-  if (r.failed.length) msg += `\n${r.failed.length} 项失败：\n` + r.failed.slice(0, 5).map((f) => `· ${results.items[f.id].name}：${f.error}`).join("\n");
+  if (r.failed.length) msg += `\n${r.failed.length} 项没处理：\n` + r.failed.slice(0, 5).map((f) => `· ${f.id != null ? results.items[f.id].name : ""}：${f.error}`).join("\n");
   toast(msg); render();
 };
 
@@ -501,7 +548,8 @@ function orow(it) {
   const gone = !!it.moved_to;
   const opts = `<option value="">（不移动）</option>` + it.options.map((o) =>
     `<option value="${esc(o.path)}" ${odest[it.id] === o.path ? "selected" : ""}>${esc(o.label)}</option>`).join("");
-  const conf = it.dest ? `把握 ${(it.conf * 100).toFixed(0)}%` : "";
+  const VIA = { name: "同名文件夹", keyword: "关键词", laya: "Laya 判断", type: "文件类型" };
+  const conf = it.dest ? `依据：${VIA[it.via] || "—"} · 建议分 ${(it.conf * 100).toFixed(0)}` : "";
   return `<div class="oit ${gone ? "gone" : ""}">
     <input type="checkbox" data-oid="${it.id}" ${osel.has(it.id) ? "checked" : ""} ${gone || !odest[it.id] ? "disabled" : ""}>
     <div><div class="nm">${it.is_dir ? "📁 " : ""}<span class="chip">${esc(it.type)}</span>${esc(it.name)}</div>
@@ -517,13 +565,15 @@ function renderPlan() {
   $("olist").innerHTML = list.length ? list.slice(0, oshown).map(orow).join("") +
     (list.length > oshown ? `<button class="more" id="omore">再显示 300 项（共 ${list.length} 项）</button>` : "")
     : `<div class="empty">这一栏没有内容</div>`;
+  const n = list.filter((i) => odest[i.id] && !i.moved_to).length;
+  $("oselall").textContent = `全选筛选结果（${n} 项）`;
   drawOsel();
 }
 
 function drawOsel() {
   const n = osel.size, size = [...osel].reduce((a, id) => a + plan.items[id].size, 0);
   $("osel").textContent = n ? `已选 ${n} 项，共 ${gb(size)}` : "未选择";
-  $("orun").disabled = !n;
+  $("orun").disabled = !n || running || busy;
 }
 
 $("olist").addEventListener("change", (e) => {
@@ -550,9 +600,15 @@ $("oselnone").onclick = () => { osel.clear(); if (plan) renderPlan(); };
 
 $("orun").onclick = async () => {
   const moves = [...osel].map((id) => ({ id, dest: odest[id] }));
-  if (!confirm(`将移动 ${moves.length} 项到选定的文件夹。\n会留下整理记录，之后可以在「整理记录」里一键撤销。`)) return;
+  const label = (id) => (plan.items[id].options.find((o) => o.path === odest[id]) || {}).label || odest[id];
+  const text = `将移动 ${moves.length} 项：\n` + summarize(moves.map((m) => plan.items[m.id]), (i) => "→ " + label(i.id)) +
+    `\n\n会留下整理记录，之后可以在「整理记录」里一键撤销。`;
+  if (!confirm(text)) return;
   $("orun").disabled = true;
-  const r = await api("/api/organize/run", { moves });
+  let r;
+  try { r = await api("/api/organize/run", { moves, plan_id: plan.plan_id }); }
+  catch (e) { toast("操作失败：" + e.message); drawOsel(); return; }
+  if (r.stale) { await loadPlan(); toast(r.failed[0].error); return; }
   Object.entries(r.moved).forEach(([id, to]) => { plan.items[id].moved_to = to; osel.delete(+id); });
   r.failed.forEach((f) => osel.delete(f.id));
   let msg = `已整理 ${r.done.length} 项。` + (r.demo ? DEMO_NOTE : "");
@@ -571,7 +627,9 @@ async function loadHistory() {
 $("hist").addEventListener("click", async (e) => {
   const b = e.target.closest("[data-undo]"); if (!b) return;
   if (!confirm("把这次整理移动的文件全部放回原处？")) return;
-  const r = await api("/api/organize/undo", { id: b.dataset.undo });
+  let r;
+  try { r = await api("/api/organize/undo", { id: b.dataset.undo }); }
+  catch (e) { toast("没能撤销：" + e.message); return; }
   if (plan) await loadPlan();  // 重新拉取方案，让放回原处的行恢复成未移动
   toast(`已放回 ${r.restored} 项。` + (r.demo ? DEMO_NOTE : "") + (r.failed.length ? `\n${r.failed.length} 项没能放回（处理好后可以点「再试一次」）：\n` + r.failed.slice(0, 5).map((f) => `· ${f.name}：${f.error}`).join("\n") : ""));
   loadHistory();

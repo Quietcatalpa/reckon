@@ -66,12 +66,15 @@ class ScanResult:
         self.n_programs = 0   # 跳过的程序安装目录数
 
 
-def _add_group(res, key, label, path, size, count, newest, p, hint):
+def _add_group(res, key, label, path, size, count, newest, p, hint, strict=False):
+    """strict=True 的组（临时文件、解压的软件、模型缓存等）删除前要确认扫描后没有新变化；
+    应用缓存本来就一直在变、随时能重新生成，不做这个检查。"""
     g = res.groups.get(key)
     if g is None:
-        g = res.groups[key] = {"key": key, "label": label, "paths": [], "size": 0, "count": 0,
-                               "newest": 0.0, "p": p, "hint": hint}
+        g = res.groups[key] = {"key": key, "label": label, "paths": [], "stamps": [], "size": 0, "count": 0,
+                               "newest": 0.0, "p": p, "hint": hint, "strict": strict}
     g["paths"].append(path)
+    g["stamps"].append(newest)
     g["size"] += size
     g["count"] += count
     g["newest"] = max(g["newest"], newest)
@@ -110,7 +113,7 @@ def _scan_temp(res, stop):
             continue
         if newest < cutoff:
             _add_group(res, "temp", "系统临时文件", e.path, size, count, newest,
-                       0.92, f"%TEMP% 中 {C.TEMP_MIN_AGE_DAYS} 天前的临时文件，程序正在用的会自动跳过")
+                       0.92, f"%TEMP% 中 {C.TEMP_MIN_AGE_DAYS} 天前的临时文件，程序正在用的会自动跳过", strict=True)
 
 
 def _match_group(res, path, nd, name_l, parent_n, stop):
@@ -131,17 +134,17 @@ def _match_group(res, path, nd, name_l, parent_n, stop):
         old = newest and time.time() - newest > 180 * 86400
         _add_group(res, "nm:" + nd, "node_modules · " + os.path.basename(os.path.dirname(path)),
                    path, size, count, newest, 0.72 if old else 0.55,
-                   "前端依赖目录，可用 npm install 重新生成")
+                   "前端依赖目录，可用 npm install 重新生成", strict=True)
         return True
     if parent_n == norm(C.HF_HUB) and (name_l.startswith("models--") or name_l.startswith("datasets--")):
         kind = "模型" if name_l.startswith("models--") else "数据集"
         label = f"HuggingFace {kind} · " + path.split("--", 1)[1].replace("--", "/")
         _add_group(res, "hf:" + nd, label, path, *dir_stats(path, stop), 0.5,
-                   f"下载过的{kind}缓存，删除后用到时会重新下载")
+                   f"下载过的{kind}缓存，删除后用到时会重新下载", strict=True)
         return True
     if parent_n == norm(C.HOME_CACHE) and name_l not in ("huggingface", "pip"):
         _add_group(res, "hc:" + nd, "工具缓存 · .cache\\" + os.path.basename(path), path,
-                   *dir_stats(path, stop), 0.45, "各类工具的下载/模型缓存，用途请自行确认")
+                   *dir_stats(path, stop), 0.45, "各类工具的下载/模型缓存，用途请自行确认", strict=True)
         return True
     if name_l in C.CACHE_DIR_NAMES and any(under(nd, b) for b in C.APPDATA_NS):
         app, key = _app_label(path, nd)
@@ -176,14 +179,14 @@ def scan(roots, on_progress, stop):
             pk = os.path.join(d, "pkgs")
             if os.path.isdir(pk):
                 _add_group(res, "conda:" + nd, "conda 安装包缓存 · " + d, pk, *dir_stats(pk, stop), 0.6,
-                           "建议在命令行运行 conda clean -a 清理，而不是直接删除")
+                           "建议在命令行运行 conda clean -a 清理，而不是直接删除", strict=True)
             res.n_programs += 1
             continue
         if names & C.UNINSTALL_MARKERS or _looks_like_program(d, names):
             if under(nd, C.DOWNLOADS_N) and nd != C.DOWNLOADS_N:
                 # 下载文件夹里解压出来的软件：整个文件夹作为一项让用户决定
                 _add_group(res, "dlprog:" + nd, "下载文件夹中的软件 · " + os.path.basename(d), d,
-                           *dir_stats(d, stop), 0.6, "看起来是解压出来的软件，确认不再使用可以整个删除")
+                           *dir_stats(d, stop), 0.6, "看起来是解压出来的软件，确认不再使用可以整个删除", strict=True)
             res.n_programs += 1
             continue
         is_root = len(nd.rstrip("\\").split("\\")) == 1

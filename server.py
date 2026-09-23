@@ -29,6 +29,12 @@ TOKEN = secrets.token_urlsafe(24)
 
 DEMO_DIR = os.path.join(C.TOOL_DIR, "docs", "demo")
 # 演示模式：清理和整理只在内存里模拟，界面照常变化，磁盘上什么都不动
+STALE = "页面上的结果已经过期（可能在别的页面重新扫描或生成了方案），请刷新页面后重新选择"
+BUSY = "另一项操作正在进行（扫描、生成方案、删除、整理或撤销），请等它完成后再试"
+
+
+def new_id():
+    return secrets.token_hex(8)
 
 
 class App:
@@ -41,6 +47,8 @@ class App:
         self.results = None
         self.plan = None
         self.demo_history = []
+        # 同一时间只做一件事：扫描/生成方案（后台任务）和删除/整理/撤销（改动文件的操作）互斥
+        self.op_running = False
         if demo:
             with open(os.path.join(DEMO_DIR, "scan.json"), encoding="utf-8") as f:
                 self.results = json.load(f)
@@ -52,6 +60,10 @@ class App:
                     self.results = json.load(f)
             except (OSError, ValueError):
                 pass
+        # 结果和方案都带编号，页面提交操作时要带上，编号对不上说明页面看到的是旧结果
+        for obj, key in ((self.results, "scan_id"), (self.plan, "plan_id")):
+            if obj is not None and not obj.get(key):
+                obj[key] = new_id()
         if self.judge:
             threading.Thread(target=self.judge.load, daemon=True).start()
 
@@ -66,11 +78,22 @@ class App:
         with self.lock:
             self.job.update(kw)
 
+    def _begin_op(self):
+        with self.lock:
+            if self.job["running"] or self.op_running:
+                return False
+            self.op_running = True
+            return True
+
+    def _end_op(self):
+        with self.lock:
+            self.op_running = False
+
     def _start(self, kind, target, opts, message):
         if self.demo:
             return False
         with self.lock:
-            if self.job["running"]:
+            if self.job["running"] or self.op_running:
                 return False
             self.job = {"running": True, "kind": kind, "phase": "running", "message": message,
                         "progress": 0.0, "error": None}
@@ -105,14 +128,16 @@ class App:
             if mode == "topic" and not planner.tops:
                 raise ValueError("目标文件夹里没有子文件夹，没有可以放进去的分类")
             items = planner.plan(units, lambda m, p: self._set(message=m, progress=p), self.stop)
-            self.plan = {"mode": mode, "target": target, "sources": opts.get("sources", []), "items": items, "notes": notes,
-                         "used_laya": planner.judge is not None, "created": time.time()}
+            self.plan = {"plan_id": new_id(), "mode": mode, "target": target, "sources": opts.get("sources", []),
+                         "items": items, "notes": notes, "used_laya": planner.judge is not None, "created": time.time()}
             self._set(running=False, phase="done", progress=1.0, message=f"整理方案已生成，共 {len(items)} 项")
         except Exception as e:  # noqa: BLE001
             traceback.print_exc()
             self._set(running=False, phase="error", error=str(e), message="生成整理方案出错")
 
-    def run_organize(self, moves):
+    def run_organize(self, moves, plan_id=None):
+        if not self.plan or plan_id != self.plan.get("plan_id"):
+            return {"done": [], "moved": {}, "failed": [{"id": None, "error": STALE}], "history": None, "stale": True}
         if self.demo:
             items = self.plan["items"]
             moved = {m["id"]: os.path.join(m["dest"], items[m["id"]]["name"]) for m in moves if 0 <= m["id"] < len(items)}
@@ -122,12 +147,25 @@ class App:
             self.demo_history.insert(0, {"id": hid, "time": time.time(), "count": len(moved), "undone": False,
                                          "sample": [items[i]["name"] for i in list(moved)[:3]], "ids": list(moved)})
             return {"done": list(moved), "moved": moved, "failed": [], "history": hid, "demo": True}
-        if not self.plan:
-            return {"done": [], "moved": {}, "failed": [{"id": None, "error": "还没有整理方案"}], "history": None}
-        with self.lock:
-            if self.job["running"]:
-                return {"done": [], "moved": {}, "failed": [{"id": None, "error": "有任务正在进行"}], "history": None}
-        return organize.execute(self.plan["items"], moves)
+        if not self._begin_op():
+            return {"done": [], "moved": {}, "failed": [{"id": None, "error": BUSY}], "history": None}
+        try:
+            return organize.execute(self.plan["items"], moves)
+        finally:
+            self._end_op()
+
+    def undo(self, hid):
+        if not self._begin_op():
+            raise ValueError(BUSY)
+        try:
+            res = organize.undo(hid)
+        finally:
+            self._end_op()
+        back = set(res["restored_paths"])
+        for it in (self.plan or {}).get("items", []):
+            if it.get("moved_to") and it["path"] in back:
+                it.pop("moved_to")
+        return res
 
     def _run(self, opts):
         t0 = time.time()
@@ -148,7 +186,7 @@ class App:
             items, dup_out = decide.build_items(res, dup_groups, judge, opts,
                                                 lambda m, p: self._set(message=m, progress=p), self.stop)
             results = {
-                "finished_at": time.time(), "seconds": round(time.time() - t0), "drives": roots,
+                "scan_id": new_id(), "finished_at": time.time(), "seconds": round(time.time() - t0), "drives": roots,
                 "stopped": self.stop.is_set(), "used_laya": judge is not None,
                 "stats": {"files": res.n_files, "bytes": res.n_bytes, "errors": res.n_errors,
                           "programs": res.n_programs},
@@ -177,12 +215,22 @@ class App:
                 return {"restored": h["count"], "failed": [], "already": False, "demo": True}
         return {"restored": 0, "failed": [], "already": True, "demo": True}
 
-    def trash(self, ids):
+    def trash(self, ids, scan_id=None):
+        if not self.results or scan_id != self.results.get("scan_id"):
+            return {"done": [], "failed": [{"id": None, "error": STALE}], "stale": True}
         if self.demo:
             done = [i for i in ids if self._item(i)]
             for i in done:
                 self._item(i)["trashed"] = True
             return {"done": done, "failed": [], "demo": True}
+        if not self._begin_op():
+            return {"done": [], "failed": [{"id": None, "error": BUSY}]}
+        try:
+            return self._trash(ids)
+        finally:
+            self._end_op()
+
+    def _trash(self, ids):
         from send2trash import send2trash
         done, failed = [], []
         chosen = [it for it in (self._item(i) for i in ids) if it and not it.get("trashed")]
@@ -190,22 +238,29 @@ class App:
         chosen.sort(key=lambda it: it["kind"] != "dupe")
         for it in chosen:
             try:
-                if it["kind"] == "dupe" and not os.path.exists(it["dup_of"]):
-                    raise RuntimeError("保留的那份已经不在了，为安全起见不删除这份")
+                if it["kind"] == "dupe":
+                    self._check_keep(it)
                 paths = it.get("paths") or [it["path"]]
+                stamps = it.get("stamps") or []
                 n_ok, problems = 0, []
-                for p in paths:
+                for idx, p in enumerate(paths):
                     if C.is_protected(norm(p)):
                         raise RuntimeError("位于受保护目录")
                     if not os.path.exists(p):
                         continue
                     if os.path.isdir(p):
-                        size = scanner.dir_stats(p)[0]
+                        size, _, newest = scanner.dir_stats(p)
                     else:
                         st = os.stat(p)
-                        size = st.st_size
+                        size, newest = st.st_size, st.st_mtime
                         if it["kind"] != "group" and (st.st_size != it["size"] or int(st.st_mtime) != int(it["mtime"])):
                             raise RuntimeError("文件在扫描后被修改过，请重新扫描")
+                    # 临时文件、解压的软件等：扫描后里面有新改动就不动它，免得把新放进去的东西一起删掉
+                    if it.get("strict") and idx < len(stamps) and newest > stamps[idx] + 1:
+                        problems.append(f"扫描后「{os.path.basename(p)}」里有新的改动，为安全起见跳过了，重新扫描后再处理")
+                        continue
+                    if it["kind"] == "dupe" and not dupes.same_content(p, it["dup_of"]):
+                        raise RuntimeError("完整比对后发现和保留的那份内容并不完全相同，没有删除")
                     # 确认一定能进回收站（本机硬盘、回收站开着、没超过容量上限），否则 Windows 会直接永久删除
                     why = recycle.check(p, size)
                     if why:
@@ -228,6 +283,15 @@ class App:
                 json.dump(self.results, f, ensure_ascii=False)
         return {"done": done, "failed": failed}
 
+    @staticmethod
+    def _check_keep(it):
+        """删重复副本前确认保留的那份还在、扫描后没被改过。内容是否真的相同在删之前再完整比对。"""
+        keep = it["dup_of"]
+        if not os.path.exists(keep):
+            raise RuntimeError("保留的那份已经不在了，为安全起见不删除这份")
+        if it.get("keep_mtime") and int(os.path.getmtime(keep)) != int(it["keep_mtime"]):
+            raise RuntimeError("保留的那份在扫描后被修改过，请重新扫描")
+
     def reveal(self, iid, organize_plan=False):
         if self.demo:
             return False
@@ -249,8 +313,9 @@ class App:
 
 
 DEMO_DRIVES = [
-    {"root": "C:\\", "total": 476 << 30, "used": 301 << 30, "free": 175 << 30},
-    {"root": "D:\\", "total": 931 << 30, "used": 522 << 30, "free": 409 << 30},
+    {"root": "C:\\", "type": "fixed", "total": 476 << 30, "used": 301 << 30, "free": 175 << 30},
+    {"root": "D:\\", "type": "fixed", "total": 931 << 30, "used": 522 << 30, "free": 409 << 30},
+    {"root": "E:\\", "type": "removable", "total": 64 << 30, "used": 12 << 30, "free": 52 << 30},
 ]
 _pick_lock = threading.Lock()
 
@@ -270,16 +335,30 @@ def pick_folder(title):
         return os.path.normpath(path) if path else None
 
 
+DRIVE_TYPES = {2: "removable", 3: "fixed", 4: "network", 5: "cdrom", 6: "ramdisk"}
+
+
 def list_drives():
+    """列出盘符并标出类型。光驱和读不到的盘不列；网络盘不查容量（断开时会卡很久）。"""
+    import ctypes
+    k32 = ctypes.windll.kernel32
+    mask = k32.GetLogicalDrives()
     out = []
-    for letter in string.ascii_uppercase:
-        root = f"{letter}:\\"
-        if os.path.isdir(root):
+    for i, letter in enumerate(string.ascii_uppercase):
+        if not mask >> i & 1:
+            continue
+        root = letter + ":\\"
+        kind = DRIVE_TYPES.get(k32.GetDriveTypeW(root), "unknown")
+        if kind in ("cdrom", "unknown"):
+            continue
+        entry = {"root": root, "type": kind, "total": 0, "used": 0, "free": 0}
+        if kind != "network":
             try:
                 u = shutil.disk_usage(root)
-                out.append({"root": root, "total": u.total, "used": u.used, "free": u.free})
             except OSError:
-                pass
+                continue  # 读卡器里没插卡之类
+            entry.update(total=u.total, used=u.used, free=u.free)
+        out.append(entry)
     return out
 
 
@@ -320,8 +399,10 @@ def make_handler(app, port):
                 with app.lock:
                     job = dict(app.job)
                 drives = DEMO_DRIVES if app.demo else list_drives()
-                self._send(200, {"model": app.model_info(), "job": job, "drives": drives,
-                                 "has_results": app.results is not None, "has_plan": app.plan is not None})
+                self._send(200, {"model": app.model_info(), "job": job, "drives": drives, "busy": app.op_running,
+                                 "has_results": app.results is not None, "has_plan": app.plan is not None,
+                                 "scan_id": (app.results or {}).get("scan_id"),
+                                 "plan_id": (app.plan or {}).get("plan_id")})
             elif self.path == "/api/results":
                 self._send(200, app.results or {})
             elif self.path == "/api/organize/plan":
@@ -351,7 +432,7 @@ def make_handler(app, port):
                 app.stop.set()
                 self._send(200, {"ok": True})
             elif self.path == "/api/trash":
-                self._send(200, app.trash([int(i) for i in body.get("ids", [])]))
+                self._send(200, app.trash([int(i) for i in body.get("ids", [])], body.get("scan_id")))
             elif self.path == "/api/reveal":
                 self._send(200, {"ok": app.reveal(int(body.get("id", -1)))})
             elif self.path == "/api/pick":
@@ -362,17 +443,12 @@ def make_handler(app, port):
                 self._send(200, {"ok": app.start_organize(body)})
             elif self.path == "/api/organize/run":
                 moves = [{"id": int(m["id"]), "dest": str(m["dest"])} for m in body.get("moves", [])]
-                self._send(200, app.run_organize(moves))
+                self._send(200, app.run_organize(moves, body.get("plan_id")))
             elif self.path == "/api/organize/undo" and app.demo:
                 self._send(200, app.demo_undo(str(body.get("id", ""))))
             elif self.path == "/api/organize/undo":
                 try:
-                    res = organize.undo(str(body.get("id", "")))
-                    back = set(res["restored_paths"])
-                    for it in (app.plan or {}).get("items", []):
-                        if it.get("moved_to") and it["path"] in back:
-                            it.pop("moved_to")
-                    self._send(200, res)
+                    self._send(200, app.undo(str(body.get("id", ""))))
                 except (OSError, ValueError) as e:
                     self._send(400, {"error": str(e)})
             else:

@@ -2,6 +2,7 @@
 import json
 import os
 import re
+import threading
 import zipfile
 
 TEXT_EXTS = set(
@@ -97,8 +98,26 @@ _READERS = {".docx": _docx, ".pptx": _pptx, ".xlsx": _xlsx, ".xlsm": _xlsx,
             ".pdf": _pdf, ".zip": _zip, ".ipynb": _ipynb}
 
 
-OFFICE_MAX_BYTES = 100 << 20  # 超大的 docx/pptx/xlsx 解析很慢（整包读进内存），只看文件信息
-OFFICE_EXTS = {".docx", ".pptx", ".xlsx", ".xlsm"}
+# 这些格式要把整个文件（或整个压缩包里的 XML）读进内存才能解析，太大就只看文件信息
+SIZE_LIMITS = {".docx": 100 << 20, ".pptx": 100 << 20, ".xlsx": 100 << 20, ".xlsm": 100 << 20,
+               ".ipynb": 20 << 20, ".pdf": 300 << 20}
+TIMEOUT = 8  # 单个文件解析超过这么多秒就放弃，免得一个怪文件拖住整个扫描
+
+
+def _run_with_timeout(fn, *args):
+    """在后台线程里解析，超时就不等了（线程没法强行结束，但会在后台自己跑完，不影响后续文件）。"""
+    box = {}
+
+    def work():
+        try:
+            box["v"] = fn(*args)
+        except Exception:  # noqa: BLE001
+            box["v"] = None
+
+    t = threading.Thread(target=work, daemon=True)
+    t.start()
+    t.join(TIMEOUT)
+    return box.get("v")
 
 
 def snippet(path, ext, limit=600):
@@ -106,8 +125,12 @@ def snippet(path, ext, limit=600):
         return None
     reader = _READERS.get(ext, _text)
     try:
-        if ext in OFFICE_EXTS and os.path.getsize(path) > OFFICE_MAX_BYTES:
+        if os.path.getsize(path) > SIZE_LIMITS.get(ext, float("inf")):
             return None
-        return _clean(reader(path, limit), limit)
-    except Exception:
+    except OSError:
+        return None
+    text = _run_with_timeout(reader, path, limit)
+    try:
+        return _clean(text, limit)
+    except Exception:  # noqa: BLE001
         return None
