@@ -1,0 +1,593 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>盘算 Reckon</title>
+<style>
+:root {
+  --bg: #f6f6f3; --panel: #ffffff; --ink: #1d1d1b; --muted: #6b6b66; --line: #e3e2dc;
+  --accent: #2f6f5e; --accent-ink: #ffffff; --soft: #eef3f1;
+  --del: #b4452f; --del-soft: #f8e9e5; --rev: #9a6a12; --rev-soft: #f7efdc; --keep: #3b6d3a; --keep-soft: #e7f0e5;
+  --bar: #2f6f5e;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #161715; --panel: #1f201e; --ink: #ecebe6; --muted: #9a9a93; --line: #33342f;
+    --accent: #6fb8a2; --accent-ink: #0f1a17; --soft: #1f2d29;
+    --del: #e58a74; --del-soft: #3a231d; --rev: #e0b45c; --rev-soft: #362c17; --keep: #93c68e; --keep-soft: #1f2e1e;
+    --bar: #6fb8a2;
+  }
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { margin: 0; background: var(--bg); color: var(--ink);
+  font: 14px/1.5 "Microsoft YaHei UI", "PingFang SC", system-ui, sans-serif; padding-bottom: 80px; }
+.wrap { max-width: 1180px; margin: 0 auto; padding: 20px 16px; }
+header { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
+h1 { font-size: 22px; margin: 0; letter-spacing: .5px; }
+h1 .en { font-size: 15px; font-weight: 500; color: var(--muted); letter-spacing: 0; margin-left: 4px; }
+.sub { color: var(--muted); font-size: 13px; }
+.pill { margin-left: auto; padding: 4px 10px; border-radius: 99px; font-size: 12px; background: var(--soft); color: var(--accent); }
+.pill.warn { background: var(--rev-soft); color: var(--rev); }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 16px; margin-bottom: 14px; }
+.row { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+.drive { border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; min-width: 200px; cursor: pointer; display: flex; gap: 10px; align-items: center; }
+.drive input { accent-color: var(--accent); }
+.meter { height: 6px; background: var(--line); border-radius: 3px; overflow: hidden; margin-top: 4px; width: 150px; }
+.meter i { display: block; height: 100%; background: var(--bar); }
+label.opt { display: flex; gap: 6px; align-items: center; color: var(--muted); }
+input[type=number] { width: 72px; padding: 4px 6px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--ink); }
+input[type=search], select { padding: 6px 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); color: var(--ink); }
+button { font: inherit; border: 1px solid var(--line); background: var(--panel); color: var(--ink); padding: 7px 14px; border-radius: 7px; cursor: pointer; }
+button.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+button.danger { background: var(--del); color: #fff; border-color: var(--del); }
+button:disabled { opacity: .45; cursor: default; }
+.progress { height: 6px; background: var(--line); border-radius: 3px; overflow: hidden; margin: 12px 0 6px; }
+.progress i { display: block; height: 100%; background: var(--bar); width: 0; transition: width .3s; }
+.progress.indet i { width: 30%; animation: slide 1.2s infinite ease-in-out; }
+@keyframes slide { from { margin-left: -30%; } to { margin-left: 100%; } }
+.msg { color: var(--muted); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tiles { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 10px; margin-bottom: 14px; }
+@media (max-width: 900px) { .tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+.tile { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; cursor: pointer; }
+.tile.on { outline: 2px solid var(--accent); outline-offset: -2px; }
+.tile b { display: block; font-size: 22px; font-variant-numeric: tabular-nums; }
+.tile span { color: var(--muted); font-size: 12px; }
+.toolbar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 8px; }
+.toolbar input[type=search] { flex: 1; min-width: 160px; }
+.list { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+.it { display: grid; grid-template-columns: 28px 1fr 96px 120px 34px; gap: 10px; padding: 10px 14px; border-top: 1px solid var(--line); align-items: start; }
+.it:first-child { border-top: 0; }
+.it.gone { opacity: .45; }
+.it.gone .nm { text-decoration: line-through; }
+.it input { margin-top: 3px; accent-color: var(--accent); width: 16px; height: 16px; }
+.nm { font-weight: 600; word-break: break-all; }
+.pth { color: var(--muted); font-size: 12px; word-break: break-all; }
+.why { font-size: 12px; color: var(--muted); margin-top: 2px; }
+.chip { display: inline-block; font-size: 11px; padding: 1px 7px; border-radius: 99px; background: var(--soft); color: var(--accent); margin-right: 4px; font-weight: 400; }
+.sz { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.sz small { display: block; color: var(--muted); font-size: 11px; }
+.verdict { font-size: 12px; }
+.badge { display: inline-block; padding: 1px 8px; border-radius: 5px; font-weight: 600; }
+.badge.delete { background: var(--del-soft); color: var(--del); }
+.badge.review { background: var(--rev-soft); color: var(--rev); }
+.badge.keep { background: var(--keep-soft); color: var(--keep); }
+.pbar { height: 4px; background: var(--line); border-radius: 2px; margin-top: 5px; overflow: hidden; }
+.pbar i { display: block; height: 100%; }
+.icon { border: 0; background: none; padding: 2px; cursor: pointer; color: var(--muted); font-size: 16px; }
+.dg { border-top: 1px solid var(--line); padding: 10px 14px; }
+.dg:first-child { border-top: 0; }
+.dg h4 { margin: 0 0 6px; font-size: 13px; }
+.dg .keep { font-size: 12px; color: var(--keep); word-break: break-all; }
+.dg .copy { display: flex; gap: 8px; align-items: flex-start; font-size: 12px; margin-top: 4px; word-break: break-all; }
+.empty { padding: 40px; text-align: center; color: var(--muted); }
+.more { display: block; margin: 10px auto; }
+.foot { position: fixed; left: 0; right: 0; bottom: 0; background: var(--panel); border-top: 1px solid var(--line); }
+.foot .wrap { padding: 10px 16px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.foot .sel { margin-right: auto; }
+.toast { position: fixed; right: 16px; bottom: 76px; background: var(--ink); color: var(--bg); padding: 10px 14px; border-radius: 8px; max-width: 420px; display: none; white-space: pre-line; font-size: 13px; }
+.hint { font-size: 12px; color: var(--muted); margin-top: 8px; }
+.modes { display: flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; margin-left: auto; }
+.modes button { border: 0; border-radius: 0; padding: 6px 18px; background: var(--panel); }
+.modes button.on { background: var(--accent); color: var(--accent-ink); }
+.modes + .pill { margin-left: 0; }
+.lbl { font-weight: 600; margin-bottom: 6px; }
+input[type=text] { padding: 6px 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--ink); flex: 1; min-width: 200px; font: inherit; }
+.srcs { display: flex; flex-direction: column; gap: 4px; margin-bottom: 8px; }
+.src { display: flex; gap: 8px; align-items: center; background: var(--soft); border-radius: 6px; padding: 4px 8px; font-size: 13px; word-break: break-all; }
+.src button { margin-left: auto; padding: 0 6px; border: 0; background: none; color: var(--muted); cursor: pointer; }
+.oit { display: grid; grid-template-columns: 28px 1fr minmax(180px, 320px) 34px; gap: 10px; padding: 10px 14px; border-top: 1px solid var(--line); align-items: start; }
+.oit:first-child { border-top: 0; }
+.oit.gone { opacity: .5; }
+.oit select { width: 100%; }
+.oit input { margin-top: 3px; accent-color: var(--accent); width: 16px; height: 16px; }
+.conf { font-size: 11px; color: var(--muted); margin-top: 3px; }
+.hist { display: flex; gap: 10px; align-items: center; padding: 6px 0; border-top: 1px solid var(--line); font-size: 13px; }
+.hist:first-of-type { border-top: 0; }
+.hist .grow { flex: 1; color: var(--muted); word-break: break-all; }
+@media (max-width: 720px) { .oit { grid-template-columns: 24px 1fr; } .oit .dst { grid-column: 2; } .oit .icon { display: none; } }
+@media (max-width: 720px) {
+  .it { grid-template-columns: 24px 1fr 80px; }
+  .it .verdict { grid-column: 2 / 4; }
+  .it .icon { display: none; }
+  .drive { min-width: 0; flex: 1; }
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>盘算 <span class="en">Reckon</span></h1>
+      <div class="sub">规则 + Laya 本地决策模型 · 清理只移到回收站 · 整理可一键撤销</div>
+    </div>
+    <nav class="modes" id="modes"><button data-mode="clean" class="on">清理</button><button data-mode="org">整理</button></nav>
+    <span class="pill" id="model">Laya 加载中…</span>
+  </header>
+
+<section id="clean">
+  <div class="card">
+    <div class="row" id="drives"></div>
+    <div class="row" style="margin-top:12px">
+      <label class="opt">单个文件至少 <input type="number" id="minsize" value="20" min="1"> MB</label>
+      <label class="opt">模型最多判断 <input type="number" id="maxlaya" value="300" min="0" step="100"> 个</label>
+      <label class="opt"><input type="checkbox" id="dupes" checked> 查找重复文件</label>
+      <label class="opt"><input type="checkbox" id="uselaya" checked> 使用 Laya</label>
+      <span style="flex:1"></span>
+      <button id="stop" disabled>停止</button>
+      <button class="primary" id="scan">开始扫描</button>
+    </div>
+    <div class="progress" id="prog"><i></i></div>
+    <div class="msg" id="msg">选好磁盘后点“开始扫描”。下载文件夹里的文件不受大小限制，都会列出。</div>
+  </div>
+
+  <div id="out" hidden>
+    <div class="tiles" id="tiles"></div>
+    <div class="toolbar">
+      <select id="ftype"></select>
+      <select id="ftopic"></select>
+      <select id="sort">
+        <option value="gain">按“可释放 × 把握”排序</option>
+        <option value="size">按大小排序</option>
+        <option value="p">按删除把握排序</option>
+        <option value="age">按多久没动排序</option>
+      </select>
+      <input type="search" id="q" placeholder="搜索文件名或路径">
+    </div>
+    <div class="list" id="list"></div>
+    <div class="hint" id="stats"></div>
+  </div>
+</section>
+
+<section id="org" hidden>
+  <div class="card">
+    <div class="lbl">要整理的文件或文件夹</div>
+    <div class="srcs" id="srcs"></div>
+    <div class="row">
+      <input type="text" id="srcInput" placeholder="粘贴文件或文件夹路径，回车添加">
+      <button id="srcPick">选择文件夹…</button>
+    </div>
+    <div class="hint">也可以把文件夹直接拖到「整理.bat」上，或运行一次「添加到右键发送到菜单.bat」后：右键 → 发送到 → 盘算 - 整理。
+      交进来的是文件夹时，只整理它的第一层：散落的文件逐个安排，子文件夹整体移动。</div>
+    <div class="row" style="margin-top:14px">
+      <label class="opt"><input type="radio" name="omode" value="topic" checked> 按主题：放进目标文件夹的现有分类</label>
+      <label class="opt"><input type="radio" name="omode" value="type"> 按类型：分到 文档 / 图片 / 安装包… 子文件夹</label>
+    </div>
+    <div class="row" style="margin-top:10px">
+      <span class="opt" id="targetLbl">目标文件夹</span>
+      <input type="text" id="target" placeholder="例如你平时分好类的资料文件夹">
+      <button id="targetPick">选择…</button>
+    </div>
+    <div class="row" style="margin-top:12px">
+      <label class="opt">模型最多判断 <input type="number" id="omax" value="300" min="0" step="50"> 个</label>
+      <label class="opt"><input type="checkbox" id="ouselaya" checked> 使用 Laya</label>
+      <span style="flex:1"></span>
+      <button class="primary" id="plan">生成整理方案</button>
+    </div>
+    <div class="progress" id="oprog"><i></i></div>
+    <div class="msg" id="omsg">生成方案只是预览，不会移动任何文件。确认后点下方「执行整理」才会移动。</div>
+  </div>
+
+  <div id="oout" hidden>
+    <div class="toolbar">
+      <select id="ofilter">
+        <option value="ok">已找到去处</option>
+        <option value="choose">需要你选</option>
+        <option value="skip">不移动</option>
+        <option value="">全部</option>
+      </select>
+      <input type="search" id="oq" placeholder="搜索名称">
+      <span class="sub" id="osum"></span>
+    </div>
+    <div class="list" id="olist"></div>
+    <div class="hint" id="onotes"></div>
+  </div>
+
+  <div class="card" style="margin-top:14px">
+    <div class="lbl">整理记录</div>
+    <div id="hist"><div class="sub">还没有整理过</div></div>
+  </div>
+</section>
+</div>
+
+<div class="foot">
+  <div class="wrap" id="footClean">
+    <span class="sel" id="sel">未选择</span>
+    <button id="selall">全选当前列表</button>
+    <button id="selnone">清空选择</button>
+    <button class="danger" id="trash" disabled>移到回收站</button>
+  </div>
+  <div class="wrap" id="footOrg" hidden>
+    <span class="sel" id="osel">未选择</span>
+    <button id="oselall">全选当前列表</button>
+    <button id="oselnone">清空选择</button>
+    <button class="primary" id="orun" disabled>执行整理（移动）</button>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+const TOKEN = "__TOKEN__";
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const gb = (n) => n >= 1 << 30 ? (n / (1 << 30)).toFixed(1) + " GB" : n >= 1 << 20 ? (n / (1 << 20)).toFixed(0) + " MB" : (n / 1024).toFixed(0) + " KB";
+const REC = { delete: "建议删除", review: "需要你看", keep: "建议保留" };
+const DEMO_NOTE = "（演示模式，没有真正改动文件）";
+const TABS = [
+  ["delete", "建议删除"], ["review", "需要你看"], ["dupes", "重复文件"], ["group", "缓存目录"], ["keep", "建议保留"], ["all", "全部"],
+];
+
+let results = null, tab = "delete", shown = 300, selected = new Set(), running = false;
+
+async function api(path, body) {
+  const opt = { headers: { "X-Token": TOKEN } };
+  if (body !== undefined) { opt.method = "POST"; opt.headers["Content-Type"] = "application/json"; opt.body = JSON.stringify(body); }
+  const r = await fetch(path, opt);
+  if (!r.ok) throw new Error(r.status);
+  return r.json();
+}
+
+function toast(text) {
+  const t = $("toast"); t.textContent = text; t.style.display = "block";
+  clearTimeout(toast.h); toast.h = setTimeout(() => (t.style.display = "none"), 6000);
+}
+
+let drivesDrawn = false;
+function drawDrives(drives) {
+  if (drivesDrawn) return; drivesDrawn = true;
+  $("drives").innerHTML = drives.map((d) => {
+    const on = /^[CD]:/.test(d.root) ? "checked" : "";
+    return `<label class="drive"><input type="checkbox" value="${esc(d.root)}" ${on}>
+      <div><b>${esc(d.root.slice(0, 2))} 盘</b> <span class="sub">剩余 ${gb(d.free)} / ${gb(d.total)}</span>
+      <div class="meter"><i style="width:${(d.used / d.total * 100).toFixed(0)}%"></i></div></div></label>`;
+  }).join("");
+}
+
+function drawModel(m) {
+  const el = $("model");
+  const text = { loading: "Laya 加载中…", ready: "Laya 已就绪", missing: "未找到 Laya 模型，仅用规则", error: "Laya 加载失败，仅用规则",
+    disabled: "未启用 Laya，仅用规则", demo: "演示模式 · 示例数据" }[m.status];
+  el.textContent = text; el.title = m.error || "";
+  el.className = "pill" + (["ready", "loading", "demo"].includes(m.status) ? "" : " warn");
+}
+
+async function poll() {
+  try {
+    const s = await api("/api/state");
+    drawDrives(s.drives); drawModel(s.model);
+    const j = s.job, was = running;
+    running = j.running;
+    $("scan").disabled = running; $("stop").disabled = !(running && j.kind === "scan"); $("plan").disabled = running;
+    const org = j.kind === "organize";
+    const pr = $(org ? "oprog" : "prog");
+    pr.classList.toggle("indet", running && !j.progress);
+    pr.firstElementChild.style.width = running ? (j.progress * 100).toFixed(1) + "%" : (j.phase === "done" ? "100%" : "0");
+    if (j.message || j.error) $(org ? "omsg" : "msg").textContent = j.error ? "出错：" + j.error : j.message;
+    if (was && !running) { if (org) await loadPlan(); else await loadResults(); }
+    else {
+      if (!results && s.has_results) await loadResults();
+      if (!plan && s.has_plan) await loadPlan();
+    }
+  } catch (e) { $("msg").textContent = "连不上本地服务，请确认启动窗口还开着。"; }
+  setTimeout(poll, running ? 700 : 3000);
+}
+
+async function loadResults() {
+  results = await api("/api/results");
+  if (!results.items) return;
+  selected.clear();
+  const types = new Set(results.items.map((i) => i.type));
+  $("ftype").innerHTML = `<option value="">全部类型</option>` + [...types].map((t) => `<option>${esc(t)}</option>`).join("");
+  const topics = {};
+  results.items.forEach((i) => { if (i.topic) topics[i.topic] = (topics[i.topic] || 0) + 1; });
+  $("ftopic").innerHTML = `<option value="">全部主题（Laya 分类）</option>` +
+    Object.entries(topics).sort((a, b) => b[1] - a[1]).map(([t, n]) => `<option value="${esc(t)}">${esc(t)} · ${n}</option>`).join("");
+  const s = results.stats, when = new Date(results.finished_at * 1000).toLocaleString();
+  $("stats").textContent = `${when} 扫描 ${results.drives.join(" ")}：共 ${s.files.toLocaleString()} 个文件 / ${gb(s.bytes)}，用时 ${results.seconds} 秒，跳过 ${s.programs} 个程序安装目录，${s.errors} 处无权限访问。` +
+    (results.used_laya ? "" : " 本次未使用 Laya，仅按规则判断。") + (results.stopped ? " 扫描被中途停止，结果不完整。" : "");
+  $("out").hidden = false;
+  render();
+}
+
+function inTab(it) {
+  if (tab === "all") return true;
+  if (tab === "group") return it.kind === "group";
+  if (tab === "dupes") return it.kind === "dupe";
+  return it.rec === tab && it.kind !== "dupe";
+}
+
+function filtered() {
+  const ft = $("ftype").value, fp = $("ftopic").value, q = $("q").value.trim().toLowerCase(), sort = $("sort").value;
+  const arr = results.items.filter((it) => inTab(it) && (!ft || it.type === ft) && (!fp || it.topic === fp) &&
+    (!q || it.path.toLowerCase().includes(q) || it.name.toLowerCase().includes(q)));
+  const key = { gain: (i) => i.size * i.p, size: (i) => i.size, p: (i) => i.p, age: (i) => i.age }[sort];
+  return arr.sort((a, b) => key(b) - key(a));
+}
+
+function drawTiles() {
+  const live = results.items.filter((i) => !i.trashed);
+  const sum = (f) => live.filter(f).reduce((a, i) => a + i.size, 0);
+  const cnt = (f) => live.filter(f).length;
+  const defs = {
+    delete: (i) => i.rec === "delete" && i.kind !== "dupe", review: (i) => i.rec === "review" && i.kind !== "dupe",
+    dupes: (i) => i.kind === "dupe", group: (i) => i.kind === "group", keep: (i) => i.rec === "keep" && i.kind !== "dupe", all: () => true,
+  };
+  $("tiles").innerHTML = TABS.map(([k, label]) =>
+    `<div class="tile ${k === tab ? "on" : ""}" data-tab="${k}"><span>${label}</span><b>${gb(sum(defs[k]))}</b><span>${cnt(defs[k])} 项</span></div>`).join("");
+}
+
+function row(it) {
+  const color = it.rec === "delete" ? "var(--del)" : it.rec === "review" ? "var(--rev)" : "var(--keep)";
+  const chips = `<span class="chip">${esc(it.type)}</span>` + (it.topic ? `<span class="chip">${esc(it.topic)}</span>` : "");
+  const extra = it.kind === "dupe" ? `<div class="why">保留：${esc(it.dup_of)}</div>` :
+    it.kind === "group" && it.paths.length > 1 ? `<div class="why">包含 ${it.paths.length} 个目录/条目</div>` : "";
+  return `<div class="it ${it.trashed ? "gone" : ""}">
+    <input type="checkbox" data-id="${it.id}" ${selected.has(it.id) ? "checked" : ""} ${it.trashed ? "disabled" : ""}>
+    <div><div class="nm">${chips}${esc(it.name)}</div><div class="pth">${esc(it.path)}</div>
+      <div class="why">${esc(it.reasons.join(" · "))}</div>${extra}</div>
+    <div class="sz">${gb(it.size)}<small>${it.age} 天</small></div>
+    <div class="verdict"><span class="badge ${it.rec}">${it.trashed ? "已移到回收站" : REC[it.rec]}</span>
+      <div class="pbar"><i style="width:${(it.p * 100).toFixed(0)}%;background:${color}"></i></div>
+      <span class="sub">删除把握 ${(it.p * 100).toFixed(0)}%</span></div>
+    <button class="icon" title="在资源管理器中显示" data-reveal="${it.id}">📂</button>
+  </div>`;
+}
+
+function drawDupes(list) {
+  const groups = {};
+  list.forEach((it) => (groups[it.dup_group] ||= []).push(it));
+  return Object.values(groups).map((copies) => {
+    const d = copies[0], total = copies.reduce((a, c) => a + c.size, 0);
+    return `<div class="dg"><h4>${copies.length + 1} 份相同的文件 · 每份 ${gb(d.size)} · 可释放 ${gb(total)}</h4>
+      <div class="keep">✔ 保留：${esc(d.dup_of)}</div>
+      ${copies.map((c) => `<label class="copy"><input type="checkbox" data-id="${c.id}" ${selected.has(c.id) ? "checked" : ""} ${c.trashed ? "disabled" : ""}>
+        <span style="${c.trashed ? "text-decoration:line-through;opacity:.5" : ""}">${esc(c.path)}</span></label>`).join("")}</div>`;
+  }).join("");
+}
+
+function render() {
+  drawTiles();
+  const list = filtered();
+  let html;
+  if (!list.length) html = `<div class="empty">这一栏没有内容</div>`;
+  else if (tab === "dupes") html = drawDupes(list);
+  else html = list.slice(0, shown).map(row).join("") +
+    (list.length > shown ? `<button class="more" id="more">再显示 300 项（共 ${list.length} 项）</button>` : "");
+  $("list").innerHTML = html;
+  drawSel();
+}
+
+function drawSel() {
+  const items = [...selected].map((id) => results.items[id]);
+  const size = items.reduce((a, i) => a + i.size, 0);
+  $("sel").textContent = items.length ? `已选 ${items.length} 项，共 ${gb(size)}` : "未选择";
+  $("trash").disabled = !items.length;
+}
+
+$("tiles").addEventListener("click", (e) => {
+  const t = e.target.closest(".tile"); if (!t) return;
+  tab = t.dataset.tab; shown = 300; render();
+});
+$("list").addEventListener("click", async (e) => {
+  if (e.target.id === "more") { shown += 300; render(); return; }
+  const rv = e.target.closest("[data-reveal]");
+  if (rv) { const r = await api("/api/reveal", { id: +rv.dataset.reveal }); if (!r.ok) toast("文件已经不在原位置了"); }
+});
+$("list").addEventListener("change", (e) => {
+  const id = e.target.dataset.id; if (id === undefined) return;
+  e.target.checked ? selected.add(+id) : selected.delete(+id); drawSel();
+});
+["ftype", "ftopic", "sort"].forEach((id) => $(id).addEventListener("change", () => { shown = 300; render(); }));
+$("q").addEventListener("input", () => { shown = 300; render(); });
+$("selall").onclick = () => { if (!results) return; filtered().forEach((i) => !i.trashed && selected.add(i.id)); render(); };
+$("selnone").onclick = () => { selected.clear(); render(); };
+
+$("scan").onclick = async () => {
+  const drives = [...document.querySelectorAll("#drives input:checked")].map((i) => i.value);
+  if (!drives.length) return toast("至少选一个磁盘");
+  const r = await api("/api/scan", { drives, min_size_mb: +$("minsize").value || 20, max_laya: +$("maxlaya").value || 0,
+    dupes: $("dupes").checked, use_laya: $("uselaya").checked });
+  if (!r.ok) return toast("现在不能开始扫描（有任务在进行，或处于演示模式）");
+  running = true; poll();
+};
+$("stop").onclick = () => api("/api/stop", {});
+
+$("trash").onclick = async () => {
+  const ids = [...selected];
+  const items = ids.map((id) => results.items[id]);
+  const size = items.reduce((a, i) => a + i.size, 0);
+  const risky = items.filter((i) => i.rec === "keep").length;
+  let text = `将 ${ids.length} 项（${gb(size)}）移到回收站。\n在回收站里可以恢复；确认没问题后再清空回收站才会真正腾出空间。`;
+  if (risky) text += `\n\n注意：其中 ${risky} 项模型建议保留。`;
+  if (!confirm(text)) return;
+  $("trash").disabled = true;
+  const r = await api("/api/trash", { ids });
+  r.done.forEach((id) => { results.items[id].trashed = true; selected.delete(id); });
+  r.failed.forEach((f) => selected.delete(f.id));
+  let msg = `已移到回收站 ${r.done.length} 项。` + (r.demo ? DEMO_NOTE : "");
+  if (r.failed.length) msg += `\n${r.failed.length} 项失败：\n` + r.failed.slice(0, 5).map((f) => `· ${results.items[f.id].name}：${f.error}`).join("\n");
+  toast(msg); render();
+};
+
+/* ---------------- 整理 ---------------- */
+let mode = "clean", plan = null, osel = new Set(), odest = {}, sources = [], oshown = 300;
+const store = { get(k) { try { return localStorage.getItem(k); } catch { return null; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch {} } };
+
+function setMode(m) {
+  mode = m;
+  document.querySelectorAll("#modes button").forEach((b) => b.classList.toggle("on", b.dataset.mode === m));
+  $("clean").hidden = m !== "clean"; $("org").hidden = m !== "org";
+  $("footClean").hidden = m !== "clean"; $("footOrg").hidden = m !== "org";
+  if (m === "org") loadHistory();
+}
+$("modes").addEventListener("click", (e) => { const b = e.target.closest("button"); if (b) setMode(b.dataset.mode); });
+
+function drawSources() {
+  $("srcs").innerHTML = sources.length ? sources.map((p, i) =>
+    `<div class="src">📁 ${esc(p)}<button data-rm="${i}" title="移除">✕</button></div>`).join("")
+    : `<div class="sub">还没有添加</div>`;
+}
+function addSource(p) {
+  p = (p || "").trim().replace(/^"|"$/g, "");
+  if (p && !sources.includes(p)) sources.push(p);
+  drawSources();
+}
+$("srcs").addEventListener("click", (e) => { const b = e.target.closest("[data-rm]"); if (b) { sources.splice(+b.dataset.rm, 1); drawSources(); } });
+$("srcInput").addEventListener("keydown", (e) => { if (e.key === "Enter") { addSource(e.target.value); e.target.value = ""; } });
+$("srcPick").onclick = async () => { const r = await api("/api/pick", { title: "选择要整理的文件夹" }); if (r.path) addSource(r.path); };
+$("targetPick").onclick = async () => { const r = await api("/api/pick", { title: "选择目标文件夹" }); if (r.path) { $("target").value = r.path; store.set("target", r.path); } };
+$("target").addEventListener("change", (e) => store.set("target", e.target.value));
+document.querySelectorAll("input[name=omode]").forEach((r) => r.addEventListener("change", () => {
+  const t = document.querySelector("input[name=omode]:checked").value === "type";
+  $("targetLbl").textContent = t ? "放到哪里（可留空）" : "目标文件夹";
+  $("target").placeholder = t ? "留空则在原文件夹里建类型子文件夹" : "例如你平时分好类的资料文件夹";
+}));
+
+$("plan").onclick = async () => {
+  if (!sources.length) return toast("先添加要整理的文件或文件夹");
+  const omode = document.querySelector("input[name=omode]:checked").value;
+  if (omode === "topic" && !$("target").value.trim()) return toast("按主题整理需要先选目标文件夹");
+  const r = await api("/api/organize/start", { sources, mode: omode, target: $("target").value.trim(),
+    max_laya: +$("omax").value || 0, use_laya: $("ouselaya").checked });
+  if (!r.ok) return toast("现在不能生成方案（有任务在进行，或处于演示模式）");
+  running = true; poll();
+};
+
+async function loadPlan() {
+  plan = await api("/api/organize/plan");
+  if (!plan.items) return;
+  if (!sources.length && plan.sources) { plan.sources.forEach(addSource); }
+  if (!$("target").value && plan.target) $("target").value = plan.target;
+  document.querySelector(`input[name=omode][value=${plan.mode}]`).checked = true;
+  osel.clear(); odest = {}; oshown = 300;
+  plan.items.forEach((it) => { if (it.dest) odest[it.id] = it.dest; });
+  const n = (s) => plan.items.filter((i) => i.status === s).length;
+  $("osum").textContent = `共 ${plan.items.length} 项：已找到去处 ${n("ok")}，需要你选 ${n("choose")}，不移动 ${n("skip")}` +
+    (plan.mode === "topic" && !plan.used_laya ? "（本次未使用 Laya）" : "");
+  $("onotes").textContent = plan.notes.join("；");
+  $("ofilter").value = n("ok") ? "ok" : "choose";
+  $("oout").hidden = false;
+  renderPlan();
+}
+
+function oFiltered() {
+  const f = $("ofilter").value, q = $("oq").value.trim().toLowerCase();
+  return plan.items.filter((i) => (!f || i.status === f) && (!q || i.name.toLowerCase().includes(q)));
+}
+
+function orow(it) {
+  const gone = !!it.moved_to;
+  const opts = `<option value="">（不移动）</option>` + it.options.map((o) =>
+    `<option value="${esc(o.path)}" ${odest[it.id] === o.path ? "selected" : ""}>${esc(o.label)}</option>`).join("");
+  const conf = it.dest ? `把握 ${(it.conf * 100).toFixed(0)}%` : "";
+  return `<div class="oit ${gone ? "gone" : ""}">
+    <input type="checkbox" data-oid="${it.id}" ${osel.has(it.id) ? "checked" : ""} ${gone || !odest[it.id] ? "disabled" : ""}>
+    <div><div class="nm">${it.is_dir ? "📁 " : ""}<span class="chip">${esc(it.type)}</span>${esc(it.name)}</div>
+      <div class="pth">${esc(it.path)}</div>
+      <div class="why">${gone ? "已移到：" + esc(it.moved_to) : esc(it.reason)} · ${gb(it.size)}</div></div>
+    <div class="dst">${gone ? "" : `<select data-dest="${it.id}">${opts}</select><div class="conf">${conf}</div>`}</div>
+    <button class="icon" title="在资源管理器中显示" data-oreveal="${it.id}">📂</button>
+  </div>`;
+}
+
+function renderPlan() {
+  const list = oFiltered();
+  $("olist").innerHTML = list.length ? list.slice(0, oshown).map(orow).join("") +
+    (list.length > oshown ? `<button class="more" id="omore">再显示 300 项（共 ${list.length} 项）</button>` : "")
+    : `<div class="empty">这一栏没有内容</div>`;
+  drawOsel();
+}
+
+function drawOsel() {
+  const n = osel.size, size = [...osel].reduce((a, id) => a + plan.items[id].size, 0);
+  $("osel").textContent = n ? `已选 ${n} 项，共 ${gb(size)}` : "未选择";
+  $("orun").disabled = !n;
+}
+
+$("olist").addEventListener("change", (e) => {
+  const d = e.target.dataset;
+  if (d.dest !== undefined) {
+    const id = +d.dest;
+    if (e.target.value) { odest[id] = e.target.value; } else { delete odest[id]; osel.delete(id); }
+    const cb = document.querySelector(`[data-oid="${id}"]`);
+    if (cb) { cb.disabled = !odest[id]; if (odest[id]) { osel.add(id); cb.checked = true; } else cb.checked = false; }
+    drawOsel();
+  } else if (d.oid !== undefined) {
+    e.target.checked ? osel.add(+d.oid) : osel.delete(+d.oid); drawOsel();
+  }
+});
+$("olist").addEventListener("click", async (e) => {
+  if (e.target.id === "omore") { oshown += 300; renderPlan(); return; }
+  const rv = e.target.closest("[data-oreveal]");
+  if (rv) { const r = await api("/api/organize/reveal", { id: +rv.dataset.oreveal }); if (!r.ok) toast("文件已经不在了"); }
+});
+$("ofilter").addEventListener("change", () => { oshown = 300; renderPlan(); });
+$("oq").addEventListener("input", () => { oshown = 300; renderPlan(); });
+$("oselall").onclick = () => { if (!plan) return; oFiltered().forEach((i) => { if (odest[i.id] && !i.moved_to) osel.add(i.id); }); renderPlan(); };
+$("oselnone").onclick = () => { osel.clear(); if (plan) renderPlan(); };
+
+$("orun").onclick = async () => {
+  const moves = [...osel].map((id) => ({ id, dest: odest[id] }));
+  if (!confirm(`将移动 ${moves.length} 项到选定的文件夹。\n会留下整理记录，之后可以在「整理记录」里一键撤销。`)) return;
+  $("orun").disabled = true;
+  const r = await api("/api/organize/run", { moves });
+  Object.entries(r.moved).forEach(([id, to]) => { plan.items[id].moved_to = to; osel.delete(+id); });
+  r.failed.forEach((f) => osel.delete(f.id));
+  let msg = `已整理 ${r.done.length} 项。` + (r.demo ? DEMO_NOTE : "");
+  if (r.failed.length) msg += `\n${r.failed.length} 项失败：\n` + r.failed.slice(0, 5).map((f) => `· ${f.id != null ? plan.items[f.id].name : ""}：${f.error}`).join("\n");
+  toast(msg); renderPlan(); loadHistory();
+};
+
+async function loadHistory() {
+  const h = (await api("/api/organize/history")).history;
+  $("hist").innerHTML = h.length ? h.map((x, i) => `<div class="hist">
+    <span>${new Date(x.time * 1000).toLocaleString()}</span>
+    <span class="grow">移动了 ${x.count} 项：${esc(x.sample.join("、"))}${x.count > 3 ? " 等" : ""}</span>
+    ${x.undone ? `<span class="sub">已撤销</span>` : `<button data-undo="${esc(x.id)}">撤销</button>`}</div>`).join("")
+    : `<div class="sub">还没有整理过</div>`;
+}
+$("hist").addEventListener("click", async (e) => {
+  const b = e.target.closest("[data-undo]"); if (!b) return;
+  if (!confirm("把这次整理移动的文件全部放回原处？")) return;
+  const r = await api("/api/organize/undo", { id: b.dataset.undo });
+  if (plan) await loadPlan();  // 重新拉取方案，让放回原处的行恢复成未移动
+  toast(`已放回 ${r.restored} 项。` + (r.demo ? DEMO_NOTE : "") + (r.failed.length ? `\n${r.failed.length} 项没能放回：\n` + r.failed.slice(0, 5).map((f) => `· ${f.name}：${f.error}`).join("\n") : ""));
+  loadHistory();
+});
+
+$("target").value = store.get("target") || "";
+drawSources();
+if (location.hash.startsWith("#organize=")) {
+  try { JSON.parse(decodeURIComponent(location.hash.slice(10))).forEach(addSource); } catch {}
+  history.replaceState(null, "", location.pathname);
+  setMode("org");
+} else if (location.hash === "#org") {
+  setMode("org");
+}
+
+poll();
+</script>
+</body>
+</html>

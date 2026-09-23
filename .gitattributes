@@ -1,0 +1,5 @@
+* text=auto
+# 批处理文件必须是 CRLF，否则在 cmd 里可能解析出错
+*.bat text eol=crlf
+*.png binary
+*.gif binary

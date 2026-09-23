@@ -1,0 +1,544 @@
+{
+ "finished_at": 1790000000.0,
+ "seconds": 312,
+ "drives": [
+  "C:\\",
+  "D:\\"
+ ],
+ "stopped": false,
+ "used_laya": true,
+ "stats": {
+  "files": 186420,
+  "bytes": 274877906944,
+  "errors": 2,
+  "programs": 47
+ },
+ "items": [
+  {
+   "id": 0,
+   "kind": "group",
+   "name": "系统临时文件",
+   "path": "C:\\Users\\demo\\AppData\\Local\\Temp\\7zO1A2B",
+   "size": 2469606195,
+   "mtime": 1786457600.0,
+   "age": 41,
+   "type": "缓存目录",
+   "topic": null,
+   "p": 0.92,
+   "rec": "delete",
+   "reasons": [
+    "%TEMP% 中 3 天前的临时文件，程序正在用的会自动跳过",
+    "18,421 个文件",
+    "41 天未修改"
+   ],
+   "laya": null,
+   "paths": [
+    "C:\\Users\\demo\\AppData\\Local\\Temp\\7zO1A2B",
+    "C:\\Users\\demo\\AppData\\Local\\Temp\\7zO1A2B",
+    "C:\\Users\\demo\\AppData\\Local\\Temp\\7zO1A2B",
+    "C:\\Users\\demo\\AppData\\Local\\Temp\\7zO1A2B",
+    "C:\\Users\\demo\\AppData\\Local\\Temp\\7zO1A2B",
+    "C:\\Users\\demo\\AppData\\Local\\Temp\\7zO1A2B",
+    "C:\\Users\\demo\\AppData\\Local\\Temp\\7zO1A2B",
+    "C:\\Users\\demo\\AppData\\Local\\Temp\\7zO1A2B",
+    "C:\\Users\\demo\\AppData\\Local\\Temp\\7zO1A2B",
+    "C:\\Users\\demo\\AppData\\Local\\Temp\\7zO1A2B",
+    "C:\\Users\\demo\\AppData\\Local\\Temp\\7zO1A2B",
+    "C:\\Users\\demo\\AppData\\Local\\Temp\\7zO1A2B",
+    "C:\\Users\\demo\\AppData\\Local\\Temp\\7zO1A2B",
+    "C:\\Users\\demo\\AppData\\Local\\Temp\\7zO1A2B",
+    "C:\\Users\\demo\\AppData\\Local\\Temp\\7zO1A2B",
+    "C:\\Users\\demo\\AppData\\Local\\Temp\\7zO1A2B",
+    "C:\\Users\\demo\\AppData\\Local\\Temp\\7zO1A2B",
+    "C:\\Users\\demo\\AppData\\Local\\Temp\\7zO1A2B",
+    "C:\\Users\\demo\\AppData\\Local\\Temp\\7zO1A2B",
+    "C:\\Users\\demo\\AppData\\Local\\Temp\\7zO1A2B",
+    "C:\\Users\\demo\\AppData\\Local\\Temp\\7zO1A2B",
+    "C:\\Users\\demo\\AppData\\Local\\Temp\\7zO1A2B",
+    "C:\\Users\\demo\\AppData\\Local\\Temp\\7zO1A2B",
+    "C:\\Users\\demo\\AppData\\Local\\Temp\\7zO1A2B",
+    "C:\\Users\\demo\\AppData\\Local\\Temp\\7zO1A2B",
+    "C:\\Users\\demo\\AppData\\Local\\Temp\\7zO1A2B",
+    "C:\\Users\\demo\\AppData\\Local\\Temp\\7zO1A2B",
+    "C:\\Users\\demo\\AppData\\Local\\Temp\\7zO1A2B",
+    "C:\\Users\\demo\\AppData\\Local\\Temp\\7zO1A2B",
+    "C:\\Users\\demo\\AppData\\Local\\Temp\\7zO1A2B",
+    "C:\\Users\\demo\\AppData\\Local\\Temp\\7zO1A2B",
+    "C:\\Users\\demo\\AppData\\Local\\Temp\\7zO1A2B",
+    "C:\\Users\\demo\\AppData\\Local\\Temp\\7zO1A2B",
+    "C:\\Users\\demo\\AppData\\Local\\Temp\\7zO1A2B",
+    "C:\\Users\\demo\\AppData\\Local\\Temp\\7zO1A2B",
+    "C:\\Users\\demo\\AppData\\Local\\Temp\\7zO1A2B",
+    "C:\\Users\\demo\\AppData\\Local\\Temp\\7zO1A2B"
+   ],
+   "count": 18421
+  },
+  {
+   "id": 1,
+   "kind": "group",
+   "name": "pip 下载缓存",
+   "path": "C:\\Users\\demo\\AppData\\Local\\pip\\cache",
+   "size": 2147483648,
+   "mtime": 1790000000.0,
+   "age": 0,
+   "type": "缓存目录",
+   "topic": null,
+   "p": 0.92,
+   "rec": "delete",
+   "reasons": [
+    "pip 安装包缓存，需要时会重新下载",
+    "912 个文件",
+    "今天修改过"
+   ],
+   "laya": null,
+   "paths": [
+    "C:\\Users\\demo\\AppData\\Local\\pip\\cache"
+   ],
+   "count": 912
+  },
+  {
+   "id": 2,
+   "kind": "group",
+   "name": "应用缓存 · Google\\Chrome",
+   "path": "C:\\Users\\demo\\AppData\\Local\\Google\\Chrome\\User Data\\Default\\Cache",
+   "size": 1932735283,
+   "mtime": 1790000000.0,
+   "age": 0,
+   "type": "缓存目录",
+   "topic": null,
+   "p": 0.85,
+   "rec": "delete",
+   "reasons": [
+    "应用缓存和日志，删除后会自动重新生成；程序运行中的文件可能删不掉",
+    "20,311 个文件",
+    "今天修改过"
+   ],
+   "laya": null,
+   "paths": [
+    "C:\\Users\\demo\\AppData\\Local\\Google\\Chrome\\User Data\\Default\\Cache",
+    "C:\\Users\\demo\\AppData\\Local\\Google\\Chrome\\User Data\\Default\\Cache",
+    "C:\\Users\\demo\\AppData\\Local\\Google\\Chrome\\User Data\\Default\\Cache",
+    "C:\\Users\\demo\\AppData\\Local\\Google\\Chrome\\User Data\\Default\\Cache",
+    "C:\\Users\\demo\\AppData\\Local\\Google\\Chrome\\User Data\\Default\\Cache",
+    "C:\\Users\\demo\\AppData\\Local\\Google\\Chrome\\User Data\\Default\\Cache",
+    "C:\\Users\\demo\\AppData\\Local\\Google\\Chrome\\User Data\\Default\\Cache",
+    "C:\\Users\\demo\\AppData\\Local\\Google\\Chrome\\User Data\\Default\\Cache",
+    "C:\\Users\\demo\\AppData\\Local\\Google\\Chrome\\User Data\\Default\\Cache"
+   ],
+   "count": 20311
+  },
+  {
+   "id": 3,
+   "kind": "group",
+   "name": "应用缓存 · Code",
+   "path": "C:\\Users\\demo\\AppData\\Roaming\\Code\\logs",
+   "size": 1288490188,
+   "mtime": 1790000000.0,
+   "age": 0,
+   "type": "缓存目录",
+   "topic": null,
+   "p": 0.85,
+   "rec": "delete",
+   "reasons": [
+    "应用缓存和日志，删除后会自动重新生成；程序运行中的文件可能删不掉",
+    "3,120 个文件",
+    "今天修改过"
+   ],
+   "laya": null,
+   "paths": [
+    "C:\\Users\\demo\\AppData\\Roaming\\Code\\logs",
+    "C:\\Users\\demo\\AppData\\Roaming\\Code\\logs",
+    "C:\\Users\\demo\\AppData\\Roaming\\Code\\logs",
+    "C:\\Users\\demo\\AppData\\Roaming\\Code\\logs",
+    "C:\\Users\\demo\\AppData\\Roaming\\Code\\logs",
+    "C:\\Users\\demo\\AppData\\Roaming\\Code\\logs"
+   ],
+   "count": 3120
+  },
+  {
+   "id": 4,
+   "kind": "group",
+   "name": "node_modules · my-blog",
+   "path": "D:\\code\\my-blog\\node_modules",
+   "size": 375809638,
+   "mtime": 1767536000.0,
+   "age": 260,
+   "type": "缓存目录",
+   "topic": null,
+   "p": 0.72,
+   "rec": "delete",
+   "reasons": [
+    "前端依赖目录，可用 npm install 重新生成",
+    "41,210 个文件",
+    "260 天未修改"
+   ],
+   "laya": null,
+   "paths": [
+    "D:\\code\\my-blog\\node_modules"
+   ],
+   "count": 41210
+  },
+  {
+   "id": 5,
+   "kind": "group",
+   "name": "HuggingFace 模型 · bert-base-chinese",
+   "path": "C:\\Users\\demo\\.cache\\huggingface\\hub\\models--bert-base-chinese",
+   "size": 429496729,
+   "mtime": 1773584000.0,
+   "age": 190,
+   "type": "缓存目录",
+   "topic": null,
+   "p": 0.5,
+   "rec": "review",
+   "reasons": [
+    "下载过的模型缓存，删除后用到时会重新下载",
+    "12 个文件",
+    "190 天未修改"
+   ],
+   "laya": null,
+   "paths": [
+    "C:\\Users\\demo\\.cache\\huggingface\\hub\\models--bert-base-chinese"
+   ],
+   "count": 12
+  },
+  {
+   "id": 6,
+   "kind": "file",
+   "name": "ubuntu-24.04-desktop-amd64.iso",
+   "path": "D:\\Downloads\\ubuntu-24.04-desktop-amd64.iso",
+   "size": 6120328396,
+   "mtime": 1771510400.0,
+   "age": 214,
+   "type": "安装包",
+   "topic": "软件工具",
+   "p": 0.88,
+   "rec": "delete",
+   "reasons": [
+    "位于下载文件夹",
+    "安装包，已放了 214 天",
+    "214 天未修改"
+   ],
+   "laya": null
+  },
+  {
+   "id": 7,
+   "kind": "file",
+   "name": "Anaconda3-2024.10-Windows-x86_64.exe",
+   "path": "D:\\Downloads\\Anaconda3-2024.10-Windows-x86_64.exe",
+   "size": 966367641,
+   "mtime": 1761488000.0,
+   "age": 330,
+   "type": "安装包",
+   "topic": "软件工具",
+   "p": 0.88,
+   "rec": "delete",
+   "reasons": [
+    "位于下载文件夹",
+    "安装包，已放了 330 天",
+    "330 天未修改"
+   ],
+   "laya": null
+  },
+  {
+   "id": 8,
+   "kind": "file",
+   "name": "修图软件_安装包.zip",
+   "path": "D:\\Downloads\\修图软件_安装包.zip",
+   "size": 1288490188,
+   "mtime": 1779632000.0,
+   "age": 120,
+   "type": "压缩包",
+   "topic": "软件工具",
+   "p": 0.83,
+   "rec": "delete",
+   "reasons": [
+    "位于下载文件夹",
+    "旁边已有解压出来的同名文件夹",
+    "120 天未修改",
+    "Laya：倾向删除 71%（已读内容）"
+   ],
+   "laya": {
+    "delete": 0.71,
+    "read": true,
+    "topic": null,
+    "topic_p": 0
+   }
+  },
+  {
+   "id": 9,
+   "kind": "file",
+   "name": "SteamSetup.exe",
+   "path": "D:\\Downloads\\SteamSetup.exe",
+   "size": 193273528,
+   "mtime": 1751465600.0,
+   "age": 446,
+   "type": "安装包",
+   "topic": "软件工具",
+   "p": 0.88,
+   "rec": "delete",
+   "reasons": [
+    "位于下载文件夹",
+    "安装包，已放了 446 天",
+    "446 天未修改"
+   ],
+   "laya": null
+  },
+  {
+   "id": 10,
+   "kind": "file",
+   "name": "app-2024-11.log",
+   "path": "D:\\tools\\server\\logs\\app-2024-11.log",
+   "size": 225485783,
+   "mtime": 1764080000.0,
+   "age": 300,
+   "type": "日志缓存",
+   "topic": null,
+   "p": 0.86,
+   "rec": "delete",
+   "reasons": [
+    "临时/日志/残留下载类文件",
+    "300 天未修改",
+    "Laya：倾向删除 75%（已读内容）"
+   ],
+   "laya": {
+    "delete": 0.75,
+    "read": true,
+    "topic": null,
+    "topic_p": 0
+   }
+  },
+  {
+   "id": 11,
+   "kind": "file",
+   "name": "WeChatSetup.exe",
+   "path": "D:\\Downloads\\WeChatSetup.exe",
+   "size": 268435456,
+   "mtime": 1781792000.0,
+   "age": 95,
+   "type": "安装包",
+   "topic": "软件工具",
+   "p": 0.88,
+   "rec": "delete",
+   "reasons": [
+    "位于下载文件夹",
+    "安装包，已放了 95 天",
+    "95 天未修改"
+   ],
+   "laya": null
+  },
+  {
+   "id": 12,
+   "kind": "file",
+   "name": "机器学习入门.pdf",
+   "path": "D:\\Downloads\\机器学习入门.pdf",
+   "size": 193273528,
+   "mtime": 1768227200.0,
+   "age": 252,
+   "type": "文档",
+   "topic": null,
+   "p": 0.54,
+   "rec": "review",
+   "reasons": [
+    "位于下载文件夹",
+    "252 天未修改",
+    "Laya：倾向删除 44%（已读内容）"
+   ],
+   "laya": {
+    "delete": 0.44,
+    "read": true,
+    "topic": null,
+    "topic_p": 0
+   }
+  },
+  {
+   "id": 13,
+   "kind": "file",
+   "name": "屏幕录制 2025-03-02.mp4",
+   "path": "D:\\Downloads\\屏幕录制 2025-03-02.mp4",
+   "size": 1181116006,
+   "mtime": 1755267200.0,
+   "age": 402,
+   "type": "视频",
+   "topic": null,
+   "p": 0.45,
+   "rec": "review",
+   "reasons": [
+    "位于下载文件夹",
+    "超过一年未修改的媒体文件",
+    "402 天未修改"
+   ],
+   "laya": null
+  },
+  {
+   "id": 14,
+   "kind": "file",
+   "name": "dataset_2025.parquet",
+   "path": "D:\\Downloads\\dataset_2025.parquet",
+   "size": 375809638,
+   "mtime": 1783952000.0,
+   "age": 70,
+   "type": "数据",
+   "topic": null,
+   "p": 0.52,
+   "rec": "review",
+   "reasons": [
+    "位于下载文件夹",
+    "70 天未修改",
+    "Laya：倾向删除 47%（仅看文件信息）"
+   ],
+   "laya": {
+    "delete": 0.47,
+    "read": false,
+    "topic": null,
+    "topic_p": 0
+   }
+  },
+  {
+   "id": 15,
+   "kind": "file",
+   "name": "年终总结_终稿.docx",
+   "path": "C:\\Users\\demo\\Desktop\\年终总结_终稿.docx",
+   "size": 27262976,
+   "mtime": 1788963200.0,
+   "age": 12,
+   "type": "文档",
+   "topic": null,
+   "p": 0.06,
+   "rec": "keep",
+   "reasons": [
+    "位于个人资料目录",
+    "12 天未修改",
+    "Laya：倾向删除 1%（已读内容）"
+   ],
+   "laya": {
+    "delete": 0.01,
+    "read": true,
+    "topic": null,
+    "topic_p": 0
+   }
+  },
+  {
+   "id": 16,
+   "kind": "file",
+   "name": "raw_2024.csv",
+   "path": "D:\\资料\\01_工作项目\\销售分析\\data\\raw_2024.csv",
+   "size": 322122547,
+   "mtime": 1757168000.0,
+   "age": 380,
+   "type": "数据",
+   "topic": null,
+   "p": 0.28,
+   "rec": "keep",
+   "reasons": [
+    "380 天未修改",
+    "Laya：倾向删除 12%（已读内容）"
+   ],
+   "laya": {
+    "delete": 0.12,
+    "read": true,
+    "topic": null,
+    "topic_p": 0
+   }
+  },
+  {
+   "id": 17,
+   "kind": "file",
+   "name": "摄影后期教程.pdf",
+   "path": "D:\\Downloads\\摄影后期教程.pdf",
+   "size": 182536110,
+   "mtime": 1752416000.0,
+   "age": 435,
+   "type": "文档",
+   "topic": null,
+   "p": 0.32,
+   "rec": "keep",
+   "reasons": [
+    "位于下载文件夹",
+    "435 天未修改",
+    "Laya：倾向删除 0%（已读内容）"
+   ],
+   "laya": {
+    "delete": 0.0,
+    "read": true,
+    "topic": null,
+    "topic_p": 0
+   }
+  },
+  {
+   "id": 18,
+   "kind": "dupe",
+   "name": "租房合同.pdf",
+   "path": "C:\\Users\\demo\\Documents\\WeChat Files\\wxid_demo\\FileStorage\\File\\2025-03\\租房合同.pdf",
+   "size": 39845888,
+   "mtime": 1774448000.0,
+   "age": 180,
+   "type": "文档",
+   "topic": null,
+   "p": 0.88,
+   "rec": "delete",
+   "reasons": [
+    "与保留的那份内容完全相同"
+   ],
+   "laya": null,
+   "dup_of": "D:\\资料\\03_生活账单\\租房合同.pdf",
+   "dup_group": 0
+  },
+  {
+   "id": 19,
+   "kind": "dupe",
+   "name": "壁纸合集 (1).zip",
+   "path": "D:\\Downloads\\壁纸合集 (1).zip",
+   "size": 483183820,
+   "mtime": 1774448000.0,
+   "age": 180,
+   "type": "压缩包",
+   "topic": null,
+   "p": 0.88,
+   "rec": "delete",
+   "reasons": [
+    "与保留的那份内容完全相同"
+   ],
+   "laya": null,
+   "dup_of": "D:\\资料\\06_设计素材\\壁纸合集.zip",
+   "dup_group": 1
+  },
+  {
+   "id": 20,
+   "kind": "dupe",
+   "name": "壁纸合集 (2).zip",
+   "path": "D:\\Downloads\\壁纸合集 (2).zip",
+   "size": 483183820,
+   "mtime": 1774448000.0,
+   "age": 180,
+   "type": "压缩包",
+   "topic": null,
+   "p": 0.88,
+   "rec": "delete",
+   "reasons": [
+    "与保留的那份内容完全相同"
+   ],
+   "laya": null,
+   "dup_of": "D:\\资料\\06_设计素材\\壁纸合集.zip",
+   "dup_group": 1
+  }
+ ],
+ "dupes": [
+  {
+   "keep": "D:\\资料\\03_生活账单\\租房合同.pdf",
+   "size": 39845888,
+   "exact": true,
+   "ids": [
+    18
+   ]
+  },
+  {
+   "keep": "D:\\资料\\06_设计素材\\壁纸合集.zip",
+   "size": 483183820,
+   "exact": true,
+   "ids": [
+    19,
+    20
+   ]
+  }
+ ]
+}

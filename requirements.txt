@@ -1,0 +1,10 @@
+# 决策模型（会一并安装 torch、transformers、huggingface_hub）
+laya>=0.3.6
+# 移到回收站
+Send2Trash>=1.8
+# 读取文档内容片段
+python-docx>=1.1
+python-pptx>=1.0
+openpyxl>=3.1
+# 可选：读取 PDF 内容。PyMuPDF 是 AGPL-3.0 许可，不装的话 PDF 只按文件信息判断
+# PyMuPDF>=1.24
