@@ -8,6 +8,7 @@ APPDATA = os.environ.get("APPDATA", os.path.join(HOME, "AppData", "Roaming"))
 TEMP = os.path.join(LOCALAPPDATA, "Temp")
 TOOL_DIR = os.path.dirname(os.path.abspath(__file__))
 RESULTS_FILE = os.path.join(TOOL_DIR, "results", "last_scan.json")
+LAYA_CACHE_FILE = os.path.join(TOOL_DIR, "results", "laya_cache.json")  # 记住每个文件的模型判断
 HF_HUB = os.path.join(os.environ.get("HF_HOME", os.path.join(HOME, ".cache", "huggingface")), "hub")
 LAYA_REPO = os.path.join(HF_HUB, "models--convaiinnovations--laya-multilingual")
 HOME_CACHE = os.path.join(HOME, ".cache")
@@ -135,6 +136,9 @@ for _t, _exts in TYPE_EXTS.items():
 MEDIA_TYPES = {"图片", "视频", "音频"}
 # 安装包和图片视频只按时间判断，不送模型
 NO_MODEL_TYPES = {"安装包"} | MEDIA_TYPES
+# 没下完的下载、崩溃转储：一定是垃圾，只按规则判断，不送模型（模型对这类文件没有帮助，还会把分数往下拉）
+SURE_JUNK_EXTS = set(".crdownload .part .partial .download .qkdownloading .downloading .td .xltd .bc! .aria2 .!ut "
+                     ".dmp .mdmp".split())
 INSTALLER_NAME_HINTS = ("setup", "install", "安装", "installer", "_x64", "-x64", "win64", "win32")
 
 

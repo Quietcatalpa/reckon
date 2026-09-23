@@ -133,7 +133,7 @@ input[type=text] { padding: 6px 8px; border: 1px solid var(--line); border-radiu
     <div class="row" id="drives"></div>
     <div class="row" style="margin-top:12px">
       <label class="opt">单个文件至少 <input type="number" id="minsize" value="20" min="1"> MB</label>
-      <label class="opt">模型最多判断 <input type="number" id="maxlaya" value="300" min="0" step="100"> 个</label>
+      <label class="opt">模型最多判断 <input type="number" id="maxlaya" value="" min="0" step="100" placeholder="不限" title="留空表示全部判断；文件没变的会沿用上次的判断，不重复花时间"> 个</label>
       <label class="opt"><input type="checkbox" id="dupes" checked> 查找重复文件</label>
       <label class="opt"><input type="checkbox" id="uselaya" checked> 使用 Laya</label>
       <span style="flex:1"></span>
@@ -318,7 +318,7 @@ async function loadResults() {
   $("ftype").innerHTML = `<option value="">全部类型</option>` + [...types].map((t) => `<option>${esc(t)}</option>`).join("");
   const topics = {};
   results.items.forEach((i) => { if (i.topic) topics[i.topic] = (topics[i.topic] || 0) + 1; });
-  $("ftopic").innerHTML = `<option value="">全部主题（Laya 分类）</option>` +
+  $("ftopic").innerHTML = `<option value="">全部主题</option>` +
     Object.entries(topics).sort((a, b) => b[1] - a[1]).map(([t, n]) => `<option value="${esc(t)}">${esc(t)} · ${n}</option>`).join("");
   const s = results.stats, when = new Date(results.finished_at * 1000).toLocaleString();
   $("stats").textContent = `${when} 扫描 ${results.drives.join(" ")}：共 ${s.files.toLocaleString()} 个文件 / ${gb(s.bytes)}，用时 ${results.seconds} 秒，跳过 ${s.programs} 个程序安装目录，${s.errors} 处无权限访问。` +
@@ -361,8 +361,11 @@ function evidence(it) {  // [短标签, 鼠标悬停时的完整说明]
     return sampled ? ["疑似重复", "超大文件只抽样比对过，删除前会把两份完整比对一遍"] : ["完整比对确认", "两份文件逐字节完整比对过，内容完全相同"];
   }
   if (it.kind === "group") return ["规则判断", "按缓存目录规则判断，没有经过模型"];
-  if (it.laya) return it.laya.read ? ["规则 + 读过内容", "规则和 Laya 一起判断，Laya 读过文件开头的内容片段"]
-    : ["规则 + 文件信息", "规则和 Laya 一起判断，Laya 只看了文件名、位置、大小和时间"];
+  if (it.laya) {
+    const again = it.laya.cached ? "。文件和上次扫描时一样，沿用了上次的判断" : "";
+    return it.laya.read ? ["规则 + 读过内容", "规则和 Laya 一起判断，Laya 读过文件开头的内容片段" + again]
+      : ["规则 + 文件信息", "规则和 Laya 一起判断，Laya 只看了文件名、位置、大小和时间" + again];
+  }
   return ["只按规则", "只按位置、类型、时间等规则判断，没有经过模型"];
 }
 const evTag = (it) => { const [t, tip] = evidence(it); return `<div class="ev" title="${esc(tip)}">${esc(t)}</div>`; };

@@ -183,8 +183,11 @@ class App:
                     self.judge.ready.wait()
                 judge = self.judge if self.judge.status == "ready" else None
             self._set(message="生成清理建议…", progress=0.0)
+            cache = decide.JudgmentCache(C.LAYA_CACHE_FILE, decide.cache_version(judge)) if judge else None
             items, dup_out = decide.build_items(res, dup_groups, judge, opts,
-                                                lambda m, p: self._set(message=m, progress=p), self.stop)
+                                                lambda m, p: self._set(message=m, progress=p), self.stop, cache)
+            if cache is not None:
+                cache.save()  # 中途停止也保存，已经判断过的下次直接用
             results = {
                 "scan_id": new_id(), "finished_at": time.time(), "seconds": round(time.time() - t0), "drives": roots,
                 "stopped": self.stop.is_set(), "used_laya": judge is not None,

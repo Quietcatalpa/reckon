@@ -3,6 +3,7 @@ import hashlib
 import os
 import re
 from collections import defaultdict
+from concurrent.futures import ThreadPoolExecutor
 
 import config as C
 from config import norm, under, under_any
@@ -65,6 +66,30 @@ def _keep_score(f):
     return (s, -f["mtime"], -len(f["path"]))
 
 
+WORKERS = 4  # 读文件算指纹主要在等磁盘，hashlib 算大块数据时会释放 GIL，多线程能同时读好几个
+
+
+def _hash_all(func, files, stop, on_each=None):
+    """并行计算，返回 {path: 结果}；读不了的文件不在结果里。"""
+    out = {}
+
+    def one(f):
+        if stop.is_set():
+            return f, None
+        try:
+            return f, func(f["path"], f["size"])
+        except OSError:
+            return f, None
+
+    with ThreadPoolExecutor(WORKERS) as ex:
+        for f, v in ex.map(one, files):
+            if v is not None:
+                out[f["path"]] = v
+            if on_each:
+                on_each()
+    return out
+
+
 def find_duplicates(files, on_progress, stop):
     by_size = defaultdict(list)
     for f in files:
@@ -75,37 +100,41 @@ def find_duplicates(files, on_progress, stop):
         if os.path.splitext(np_)[1] in C.PROGRAM_EXTS and not under(np_, C.DOWNLOADS_N):
             continue
         by_size[f["size"]].append(f)
-    buckets = [g for g in by_size.values() if len(g) > 1]
-    total = sum(len(g) for g in buckets)
-    done = 0
+    cands = [f for g in by_size.values() if len(g) > 1 for f in g]
+    # 第一步：所有同大小的文件并行算首尾 64KB 的指纹
+    done = [0]
+
+    def tick():
+        done[0] += 1
+        if done[0] % 50 == 0:
+            on_progress(f"比对重复文件 {done[0]:,}/{len(cands):,}", done[0] / max(len(cands), 1) * 0.5)
+
+    quick = _hash_all(_quick, cands, stop, tick)
+    by_quick = defaultdict(list)
+    for f in cands:
+        if f["path"] in quick:
+            by_quick[(f["size"], quick[f["path"]])].append(f)
+    # 第二步：大小和首尾都一样的，再并行算完整指纹（超大文件抽样）
+    second = [f for same in by_quick.values() if len(same) > 1 for f in same]
+    done2 = [0]
+
+    def tick2():
+        done2[0] += 1
+        if done2[0] % 20 == 0:
+            on_progress(f"完整比对疑似重复 {done2[0]:,}/{len(second):,}", 0.5 + done2[0] / max(len(second), 1) * 0.5)
+
+    full = _hash_all(_full, second, stop, tick2)
+    by_full = defaultdict(list)
+    for f in second:
+        if f["path"] in full:
+            digest, exact = full[f["path"]]
+            by_full[(f["size"], digest, exact)].append(f)
     groups = []
-    for bucket in buckets:
-        if stop.is_set():
-            break
-        by_quick = defaultdict(list)
-        for f in bucket:
-            done += 1
-            try:
-                by_quick[_quick(f["path"], f["size"])].append(f)
-            except OSError:
-                pass
-        for same in by_quick.values():
-            if len(same) < 2:
-                continue
-            by_full = defaultdict(list)
-            for f in same:
-                if stop.is_set():
-                    break
-                try:
-                    digest, exact = _full(f["path"], f["size"])
-                except OSError:
-                    continue
-                by_full[digest].append(f)
-            for digest, copies in by_full.items():
-                if len(copies) < 2:
-                    continue
-                copies.sort(key=_keep_score, reverse=True)
-                groups.append({"hash": digest, "size": copies[0]["size"], "exact": exact,
-                               "keep": copies[0]["path"], "copies": [c["path"] for c in copies[1:]]})
-        on_progress(f"比对重复文件 {done:,}/{total:,}", done / max(total, 1))
+    for (size, digest, exact), copies in by_full.items():
+        if len(copies) < 2:
+            continue
+        copies.sort(key=_keep_score, reverse=True)
+        groups.append({"hash": digest, "size": size, "exact": exact,
+                       "keep": copies[0]["path"], "copies": [c["path"] for c in copies[1:]]})
+    on_progress(f"比对重复文件完成，找到 {len(groups)} 组", 1.0)
     return groups

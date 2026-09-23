@@ -1,19 +1,24 @@
-"""决策：规则先验 + Laya 判断，融合成“删除把握”，给出 建议删除 / 需要你看 / 建议保留。"""
+"""决策：规则先验 + Laya 判断，融合成“清理建议分”，给出 建议删除 / 需要你看 / 建议保留。"""
 import glob
+import hashlib
+import json
 import os
 import threading
 import time
 import warnings
 import zipfile
+from concurrent.futures import ThreadPoolExecutor
 
 import config as C
 import extract
 from config import norm, under, under_any
 from dupes import COPY_NAME
 
-DELETE_AT = 0.70   # 把握 >= 0.70 建议删除
-REVIEW_AT = 0.40   # 0.40 ~ 0.70 需要你看；更低建议保留
-PERSONAL_CAP = 0.60  # 个人目录里的文档/代码最多到“需要你看”，不会被建议直接删除
+DELETE_AT = 0.70   # 清理建议分 >= 70 建议删除
+REVIEW_AT = 0.40   # 40 ~ 70 需要你看；更低建议保留
+PERSONAL_CAP = 0.60  # 个人目录里的文档/代码、备份等最多到“需要你看”，不会被建议直接删除
+W_RULE = 0.45      # 融合时规则先验的权重，Laya 占 1 - W_RULE（用 docs/eval 的评估集检验过）
+SNIPPET_CHARS = 600  # 交给 Laya 的内容片段长度
 
 # 实测（见 README）：noul 类问题对几乎所有文件都给出 0.9 以上，区分不开；
 # 二选一的 choice 能把学习资料和软件包分开，所以删除决策只用这一问。
@@ -30,8 +35,8 @@ TOPICS = {
     "软件工具": "软件、安装包、程序、驱动",
     "其他": "以上都不是",
 }
+# 扫描时不再问 Laya 主题：实测分类不准（PPT 常被分成“软件工具”），而且每多一个问题判断时间就翻倍。主题只按关键词判断。
 TOPIC_Q = {"topic": {"type": "choice", "instructions": "根据文件名和内容，判断这个文件的用途", "criteria": TOPICS}}
-TOPIC_MIN_P = 0.5  # Laya 主题分类不太准，只在没有关键词命中且把握 >= 0.5 时采用
 # 主题优先按路径/文件名关键词判断（按顺序匹配第一个）
 TOPIC_KEYWORDS = [
     ("求职升学", "简历 实习 求职 招聘 offer 考研 保研 推免 夏令营 升学 留学 雅思 托福 gre 证书 成绩单 面试 笔试"),
@@ -57,6 +62,7 @@ class LayaJudge:
 
     def __init__(self):
         self.agent = None
+        self.model_id = None
         self.status = "loading"  # loading / ready / missing / error
         self.error = None
         self.ready = threading.Event()
@@ -73,6 +79,7 @@ class LayaJudge:
             warnings.filterwarnings("ignore")
             import laya
             self.agent = laya.load(path)
+            self.model_id = os.path.basename(os.path.normpath(path))
             self.status = "ready"
         except Exception as e:  # noqa: BLE001
             self.status = "error"
@@ -111,6 +118,12 @@ def human_size(n):
 
 def _age_text(days):
     return "今天修改过" if days < 1 else f"{days} 天未修改"
+
+
+def fuse(rule_p, laya_delete, capped):
+    """规则先验和 Laya“倾向删除”的概率融合成清理建议分（0~1）。扫描和评估脚本共用这一个函数。"""
+    p = rule_p if laya_delete is None else W_RULE * rule_p + (1 - W_RULE) * laya_delete
+    return min(p, PERSONAL_CAP) if capped else p
 
 
 def _rec(p):
@@ -191,9 +204,13 @@ def rule_prior(path, np_, ftype, age, name_l):
     else:
         p = 0.35
 
+    if ext in C.SURE_JUNK_EXTS:
+        p = max(p, 0.9)
+        reasons.append("没下载完的残留文件" if ext not in (".dmp", ".mdmp") else "程序崩溃时留下的转储文件")
+        return min(p + (0.05 if age > 30 else 0), 0.98), reasons, True, False
     if ftype == "日志缓存":
         p = max(p, 0.85)
-        reasons.append("临时/日志/残留下载类文件")
+        reasons.append("临时/日志类文件")
     elif ftype == "安装包":
         looks_installer = (under(np_, C.DOWNLOADS_N) or any(h in name_l for h in C.INSTALLER_NAME_HINTS)
                            or not name_l.endswith(".exe"))
@@ -246,10 +263,111 @@ def _laya_state(f, ftype, age, snippet):
     }
 
 
-def build_items(scan, dup_groups, judge, opts, on_progress, stop):
+def _priority(item):
+    """模型判断的先后：规则拿不准的最先，其次是规则说“该删”的（最需要模型把关），规则已经认为该留的放最后；同一档里大的优先。"""
+    p = item["_rule"]
+    band = 0 if 0.3 <= p < 0.85 else (1 if p >= 0.85 else 2)
+    return band, -item["size"]
+
+
+def _apply(item, delete, read, cached):
+    p = fuse(item["_rule"], delete, item["_capped"])
+    item["p"] = round(p, 3)
+    item["rec"] = _rec(p)
+    item["laya"] = {"delete": round(delete, 3), "read": read, "cached": cached}
+    how = "已读内容" if read else "仅看文件信息"
+    item["reasons"].append(f"Laya：倾向删除 {delete:.0%}（{how}{'，沿用上次的判断' if cached else ''}）")
+
+
+def _judge_all(pending, judge, limit, cache, on_progress, stop):
+    """先用缓存（文件没变就沿用上次的结论），剩下的按优先级交给 Laya；内容片段用 4 个线程提前读好。"""
+    todo = []
+    for item in pending:
+        hit = cache.get(item) if cache is not None else None
+        if hit:
+            _apply(item, hit["delete"], hit["read"], cached=True)
+        else:
+            todo.append(item)
+    todo.sort(key=_priority)
+    skipped = todo[limit:] if limit else []
+    todo = todo[:limit] if limit else todo
+    for item in skipped:
+        item["reasons"].append("超出本次设置的模型判断数量，仅按规则")
+    n_cached = len(pending) - len(todo) - len(skipped)
+
+    def read(item):
+        return None if item["_cloud"] or stop.is_set() else extract.snippet(item["path"], item["_ext"], SNIPPET_CHARS)
+
+    t0 = time.time()
+    with ThreadPoolExecutor(4) as ex:
+        for i, (item, snip) in enumerate(zip(todo, ex.map(read, todo))):
+            if stop.is_set():
+                ex.shutdown(wait=False, cancel_futures=True)
+                break
+            try:
+                j = judge.judge(_laya_state(item, item["type"], item["age"], snip), with_topic=False)
+            except Exception as e:  # noqa: BLE001
+                item["reasons"].append(f"模型判断失败：{type(e).__name__}")
+                continue
+            _apply(item, j["delete"], bool(snip), cached=False)
+            if cache is not None:
+                cache.put(item, j["delete"], bool(snip))
+            if i % 3 == 0 or i == len(todo) - 1:
+                eta = (time.time() - t0) / (i + 1) * (len(todo) - i - 1)
+                extra = f"（{n_cached} 个文件没变，沿用上次的判断）" if n_cached else ""
+                on_progress(f"Laya 判断中 {i + 1}/{len(todo)} · 预计还需 {int(eta // 60)} 分 {int(eta % 60)} 秒{extra}",
+                            (i + 1) / max(len(todo), 1))
+
+
+class JudgmentCache:
+    """记住 Laya 对每个文件的判断：路径、大小、修改时间都没变就直接沿用，下次扫描不用再判断一遍。
+
+    问题、内容片段长度或模型换了，version 就不一样，旧的记录全部作废。只保留本次扫描里还存在的文件。
+    """
+
+    def __init__(self, path, version):
+        self.path, self.version = path, version
+        self.old, self.new = {}, {}
+        try:
+            with open(path, encoding="utf-8") as f:
+                data = json.load(f)
+            if data.get("version") == version:
+                self.old = data.get("entries", {})
+        except (OSError, ValueError):
+            pass
+
+    @staticmethod
+    def _key(item):
+        return norm(item["path"])
+
+    def get(self, item):
+        e = self.old.get(self._key(item))
+        if e and e["size"] == item["size"] and int(e["mtime"]) == int(item["mtime"]):
+            self.new[self._key(item)] = e
+            return e
+        return None
+
+    def put(self, item, delete, read):
+        self.new[self._key(item)] = {"size": item["size"], "mtime": item["mtime"], "delete": round(delete, 4), "read": read}
+
+    def save(self):
+        os.makedirs(os.path.dirname(self.path), exist_ok=True)
+        tmp = self.path + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump({"version": self.version, "entries": self.new}, f, ensure_ascii=False)
+        os.replace(tmp, self.path)
+
+
+def cache_version(judge):
+    """问题文本、片段长度、模型版本一起决定缓存是否还能用。"""
+    blob = json.dumps([QUESTIONS, SNIPPET_CHARS, getattr(judge, "model_id", None)], ensure_ascii=False, sort_keys=True)
+    return hashlib.sha1(blob.encode("utf-8")).hexdigest()[:16]
+
+
+def build_items(scan, dup_groups, judge, opts, on_progress, stop, cache=None):
     now = time.time()
     min_bytes = int(opts.get("min_size_mb", 20) * (1 << 20))
-    max_laya = int(opts.get("max_laya", 300))
+    max_laya = int(opts.get("max_laya") or 0) or None  # 空或 0 表示不限，全部判断
     items = []
 
     def add(item):
@@ -308,7 +426,6 @@ def build_items(scan, dup_groups, judge, opts, on_progress, stop):
     cands.sort(key=lambda x: -x[0]["size"])
 
     use_laya = judge is not None and judge.status == "ready"
-    laya_budget = max_laya if use_laya else 0
     pending = []
     for f, np_ in cands:
         name = os.path.basename(f["path"])
@@ -324,41 +441,8 @@ def build_items(scan, dup_groups, judge, opts, on_progress, stop):
                     "laya": None, "_rule": p, "_capped": capped, "_ext": ext, "_cloud": f["cloud"]})
         if ftype not in C.NO_MODEL_TYPES and not skip_model:
             pending.append(item)
-
-    n_model = min(len(pending), laya_budget)
-    t0 = time.time()
-    for i, item in enumerate(pending):
-        if stop.is_set():
-            break
-        if i >= laya_budget:
-            if use_laya:
-                item["reasons"].append("超出模型判断数量上限，仅按规则")
-            continue
-        snip = None if item["_cloud"] else extract.snippet(item["path"], item["_ext"])
-        state = _laya_state(item, item["type"], item["age"], snip)
-        try:
-            j = judge.judge(state, with_topic=item["topic"] is None and item["type"] in ("文档", "数据", "压缩包"))
-        except Exception as e:  # noqa: BLE001
-            item["reasons"].append(f"模型判断失败：{type(e).__name__}")
-            continue
-        p = 0.45 * item["_rule"] + 0.55 * j["delete"]
-        if item["_capped"]:
-            p = min(p, PERSONAL_CAP)
-        item["p"] = round(p, 3)
-        item["rec"] = _rec(p)
-        # 文档被分到“软件工具”基本都是误判（实测 PPT 常被这样分），不采用
-        if (item["topic"] is None and j.get("topic_p", 0) >= TOPIC_MIN_P
-                and not (item["type"] == "文档" and j["topic"] == "软件工具")):
-            item["topic"] = j["topic"]
-        item["laya"] = {"delete": round(j["delete"], 3), "read": bool(snip),
-                        "topic": j.get("topic"), "topic_p": round(j.get("topic_p", 0), 3)}
-        item["reasons"].append(f"Laya：倾向删除 {j['delete']:.0%}"
-                               + ("（已读内容）" if snip else "（仅看文件信息）"))
-        if i % 3 == 0:
-            el = time.time() - t0
-            eta = el / (i + 1) * (n_model - i - 1)
-            on_progress(f"Laya 判断中 {i + 1}/{n_model} · 预计还需 {int(eta // 60)} 分 {int(eta % 60)} 秒",
-                        (i + 1) / max(n_model, 1))
+    if use_laya:
+        _judge_all(pending, judge, max_laya, cache, on_progress, stop)
 
     for it in items:
         for k in [k for k in it if k.startswith("_")]:

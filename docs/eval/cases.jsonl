@@ -1,0 +1,68 @@
+{"name": "WeChatSetup_3.9.12.exe", "where": "downloads", "size_mb": 250, "age": 400, "label": "delete", "note": "旧安装包"}
+{"name": "Anaconda3-2024.06-Windows-x86_64.exe", "where": "downloads", "size_mb": 900, "age": 200, "label": "delete"}
+{"name": "ubuntu-22.04-desktop-amd64.iso", "where": "downloads", "size_mb": 4700, "age": 500, "label": "delete"}
+{"name": "office2021_setup.zip", "where": "downloads", "size_mb": 3200, "age": 300, "snippet": "压缩包内共 12 个文件：setup.exe；configuration.xml；Office/Data/v64.cab；Office/Data/stream.x64.zh-cn.dat", "label": "delete"}
+{"name": "v2ray-windows-64.zip", "where": "downloads", "size_mb": 60, "age": 250, "snippet": "压缩包内共 25 个文件：v2ray.exe；wv2ray.exe；config.json；geoip.dat；geosite.dat", "label": "delete"}
+{"name": "显卡驱动_552.22_desktop.exe", "where": "downloads", "size_mb": 650, "age": 180, "label": "delete"}
+{"name": "Chrome_installer (1).exe", "where": "downloads", "size_mb": 110, "age": 90, "label": "delete"}
+{"name": "Python-3.12.4-amd64.exe", "where": "downloads", "size_mb": 26, "age": 120, "label": "delete"}
+{"name": "绘图软件_破解版.rar", "where": "downloads", "size_mb": 1400, "age": 400, "label": "delete"}
+{"name": "game_patch_v1.2.zip", "where": "downloads", "size_mb": 800, "age": 365, "snippet": "压缩包内共 340 个文件：patch/data001.pak；patch/data002.pak；patch/launcher.exe", "label": "delete"}
+{"name": "app-2024-03.log", "where": "other", "size_mb": 300, "age": 500, "snippet": "2024-03-01 10:00:01 INFO server started 2024-03-01 10:00:02 WARN retry connection pool", "label": "delete"}
+{"name": "debug_trace.log", "where": "downloads", "size_mb": 45, "age": 60, "snippet": "[DEBUG] 12:01:33 thread-4 request timeout, retrying (3/5)", "label": "delete"}
+{"name": "movie_2023.mkv.crdownload", "where": "downloads", "size_mb": 900, "age": 200, "label": "delete", "note": "没下完的下载"}
+{"name": "dataset.zip.part", "where": "downloads", "size_mb": 400, "age": 150, "label": "delete"}
+{"name": "memory.dmp", "where": "other", "size_mb": 1200, "age": 300, "label": "delete"}
+{"name": "installer_temp.tmp", "where": "other", "size_mb": 80, "age": 200, "label": "delete"}
+{"name": "Stata18.msi", "where": "downloads", "size_mb": 700, "age": 250, "label": "delete"}
+{"name": "Zoom_setup.exe", "where": "chat", "size_mb": 90, "age": 300, "label": "delete", "note": "聊天里收到的安装包"}
+{"name": "毕业论文_终稿.docx", "where": "desktop", "size_mb": 25, "age": 20, "snippet": "摘要：本文以城市社区养老服务为研究对象，通过问卷调查与深度访谈，分析了供需错配的成因", "label": "keep"}
+{"name": "个人简历_2026.pdf", "where": "downloads", "size_mb": 2, "age": 40, "snippet": "教育背景 2022-2026 某某大学 经济学学士 实习经历 某某证券 研究部 实习生 获奖情况", "label": "keep"}
+{"name": "租房合同扫描件.pdf", "where": "downloads", "size_mb": 8, "age": 300, "snippet": "房屋租赁合同 出租方（甲方） 承租方（乙方） 租赁期限自 2025 年 9 月 1 日起", "label": "keep"}
+{"name": "期末复习笔记_计量.pdf", "where": "downloads", "size_mb": 30, "age": 200, "snippet": "第三章 多元回归 OLS 估计量的性质 高斯-马尔可夫定理 异方差的检验方法", "label": "keep"}
+{"name": "课程设计报告_最终版.docx", "where": "documents", "size_mb": 22, "age": 100, "snippet": "一、设计目的 二、系统总体设计 三、模块实现 四、测试结果与分析", "label": "keep"}
+{"name": "实验数据_第三组.xlsx", "where": "desktop", "size_mb": 40, "age": 150, "snippet": "工作表：原始数据、处理后 样本编号 | 温度 | 反应时间 | 产率", "label": "keep"}
+{"name": "项目源码.zip", "where": "documents", "size_mb": 60, "age": 90, "snippet": "压缩包内共 180 个文件：src/main.py；src/model.py；README.md；requirements.txt；data/train.csv", "label": "keep"}
+{"name": "奖学金申请表.docx", "where": "downloads", "size_mb": 1, "age": 60, "snippet": "姓名 学号 专业 综合测评排名 申请理由", "label": "keep"}
+{"name": "家庭照片备份.zip", "where": "documents", "size_mb": 3500, "age": 400, "snippet": "压缩包内共 1200 个文件：2019春节/IMG_0001.jpg；2019春节/IMG_0002.jpg", "label": "keep"}
+{"name": "会议纪要_0915.docx", "where": "documents", "size_mb": 21, "age": 10, "snippet": "会议时间：9 月 15 日 参会人员 议题一：季度预算 结论：", "label": "keep"}
+{"name": "读书笔记.md", "where": "documents", "size_mb": 21, "age": 300, "snippet": "《思考，快与慢》 系统一与系统二 锚定效应 可得性启发", "label": "keep"}
+{"name": "开题报告_修改版.docx", "where": "chat", "size_mb": 21, "age": 200, "snippet": "选题依据 国内外研究现状 研究内容与方法 进度安排", "label": "keep"}
+{"name": "问卷原始数据.csv", "where": "documents", "size_mb": 50, "age": 400, "snippet": "id,gender,age,q1,q2,q3,q4 1,1,21,4,5,3,2", "label": "keep"}
+{"name": "发票_2025年报销.pdf", "where": "downloads", "size_mb": 3, "age": 100, "snippet": "增值税电子普通发票 购买方名称 价税合计", "label": "keep"}
+{"name": "护照扫描件.jpg", "where": "downloads", "size_mb": 4, "age": 500, "label": "keep"}
+{"name": "竞赛获奖证书.pdf", "where": "downloads", "size_mb": 2, "age": 300, "snippet": "荣誉证书 在全国大学生数学建模竞赛中荣获 二等奖", "label": "keep"}
+{"name": "论文.docx.bak", "where": "desktop", "size_mb": 22, "age": 200, "label": "review", "note": "备份，可能是唯一的一份"}
+{"name": "database.old", "where": "other", "size_mb": 300, "age": 400, "label": "review"}
+{"name": "计量经济学（第五版）.pdf", "where": "downloads", "size_mb": 60, "age": 250, "snippet": "第1章 导论 1.1 什么是计量经济学 1.2 经济数据的结构", "label": "review", "note": "下载的教材，网上能找到但可能还要用"}
+{"name": "Python编程从入门到实践.pdf", "where": "downloads", "size_mb": 40, "age": 400, "snippet": "第一部分 基础知识 第1章 起步 1.1 搭建编程环境", "label": "review"}
+{"name": "comments.parquet", "where": "downloads", "size_mb": 350, "age": 70, "label": "review", "note": "数据集，不确定还用不用"}
+{"name": "屏幕录制 2024-05-02.mp4", "where": "downloads", "size_mb": 1100, "age": 450, "label": "review"}
+{"name": "旅行视频_云南.mp4", "where": "documents", "size_mb": 2000, "age": 500, "label": "review"}
+{"name": "课件合集.rar", "where": "downloads", "size_mb": 900, "age": 300, "label": "review"}
+{"name": "某课程作业参考.zip", "where": "chat", "size_mb": 50, "age": 200, "snippet": "压缩包内共 8 个文件：作业1.docx；作业2.docx；参考答案.pdf", "label": "review"}
+{"name": "model_checkpoint_epoch20.pt", "where": "documents", "size_mb": 500, "age": 200, "label": "review"}
+{"name": "raw_images.zip", "where": "downloads", "size_mb": 2500, "age": 100, "snippet": "压缩包内共 5000 个文件：images/0001.png；images/0002.png", "label": "review"}
+{"name": "新建文本文档.txt", "where": "desktop", "size_mb": 21, "age": 400, "snippet": "aaa 测试 123", "label": "review"}
+{"name": "工作周报汇总.xlsx", "where": "chat", "size_mb": 25, "age": 100, "snippet": "工作表：第35周、第36周 本周完成 下周计划 风险", "label": "keep"}
+{"name": "宣传海报_源文件.psd", "where": "documents", "size_mb": 800, "age": 300, "label": "review"}
+{"name": "录音_访谈对象3.m4a", "where": "documents", "size_mb": 60, "age": 200, "label": "keep"}
+{"name": "win10_ltsc.iso", "where": "other", "size_mb": 4500, "age": 600, "label": "delete"}
+{"name": "temp_export_001.csv", "where": "downloads", "size_mb": 30, "age": 300, "snippet": "col1,col2 0,0 0,0 0,0", "label": "review"}
+{"name": "setup_log_2023.txt", "where": "downloads", "size_mb": 25, "age": 700, "snippet": "Installing component 1/40 ... done Installing component 2/40 ... done", "label": "delete"}
+{"name": "壁纸合集.zip", "where": "downloads", "size_mb": 450, "age": 300, "snippet": "压缩包内共 200 个文件：wallpaper_001.jpg；wallpaper_002.jpg", "label": "review"}
+{"name": "字体包_免费商用.zip", "where": "downloads", "size_mb": 300, "age": 400, "snippet": "压缩包内共 40 个文件：思源黑体-Regular.otf；思源宋体-Bold.otf", "label": "delete"}
+{"name": "SteamSetup.exe", "where": "downloads", "size_mb": 2, "age": 600, "label": "delete"}
+{"name": "驱动精灵_万能网卡版.exe", "where": "downloads", "size_mb": 400, "age": 700, "label": "delete"}
+{"name": "年度总结PPT.pptx", "where": "desktop", "size_mb": 60, "age": 30, "snippet": "2025 年度工作总结 一、主要成绩 二、存在问题 三、明年计划", "label": "keep"}
+{"name": "实习证明.pdf", "where": "chat", "size_mb": 21, "age": 150, "snippet": "兹证明某某同学于 2025 年 7 月至 9 月在我公司实习", "label": "keep"}
+{"name": "机器学习课程作业3.ipynb", "where": "documents", "size_mb": 21, "age": 120, "snippet": "import numpy as np from sklearn.linear_model import LogisticRegression # 作业3：逻辑回归", "label": "keep"}
+{"name": "browser_crash_report.dmp", "where": "downloads", "size_mb": 40, "age": 90, "label": "delete"}
+{"name": "考研英语真题2010-2024.pdf", "where": "downloads", "size_mb": 120, "age": 300, "snippet": "2010 年全国硕士研究生招生考试英语（一）试题 Section I Use of English", "label": "review"}
+{"name": "OBS_录屏软件_便携版.zip", "where": "downloads", "size_mb": 150, "age": 250, "snippet": "压缩包内共 900 个文件：bin/64bit/obs64.exe；data/obs-studio/locale/zh-CN.ini", "label": "delete"}
+{"name": "副本 - 毕业论文.docx", "where": "desktop", "size_mb": 25, "age": 60, "snippet": "摘要：本文以城市社区养老服务为研究对象", "label": "review", "note": "像副本，但不能确定是完全相同的"}
+{"name": "扫描全能王_导出.pdf", "where": "downloads", "size_mb": 21, "age": 30, "snippet": "（扫描件，无文字）", "label": "review"}
+{"name": "vmware_disk.vmdk", "where": "documents", "size_mb": 20000, "age": 300, "label": "review"}
+{"name": "npm-debug.log", "where": "documents", "size_mb": 21, "age": 400, "snippet": "0 info it worked if it ends with ok 1 verbose cli [ 'node', 'npm', 'install' ]", "label": "delete"}
+{"name": "财务报表_2024Q4.xlsx", "where": "downloads", "size_mb": 21, "age": 200, "snippet": "工作表：资产负债表、利润表 项目 | 期末余额 | 期初余额", "label": "keep"}
+{"name": "电影_1080p.mp4", "where": "downloads", "size_mb": 3000, "age": 500, "label": "review"}
