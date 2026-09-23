@@ -90,6 +90,17 @@ button:disabled { opacity: .45; cursor: default; }
 .foot .sel { margin-right: auto; }
 .toast { position: fixed; right: 16px; bottom: 76px; background: var(--ink); color: var(--bg); padding: 10px 14px; border-radius: 8px; max-width: 420px; display: none; white-space: pre-line; font-size: 13px; }
 .hint { font-size: 12px; color: var(--muted); margin-top: 8px; }
+.modal { position: fixed; inset: 0; background: rgba(0,0,0,.45); display: flex; align-items: flex-start; justify-content: center; padding: 40px 16px; overflow: auto; z-index: 50; }
+.modal .box { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; width: 100%; max-width: 720px; padding: 20px; }
+.modal h2 { margin: 0 0 4px; font-size: 18px; }
+.modal h3 { margin: 18px 0 6px; font-size: 14px; }
+.modal .li { display: flex; gap: 8px; align-items: center; padding: 4px 0; font-size: 13px; word-break: break-all; }
+.modal .li .grow { flex: 1; }
+.modal .li button, .modal .row button { padding: 3px 10px; }
+.modal input[type=number] { width: 70px; }
+.modal select { min-width: 110px; }
+.err { color: var(--del); font-size: 13px; white-space: pre-line; }
+.ic2 { display: flex; flex-direction: column; gap: 2px; }
 .modes { display: flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; margin-left: auto; }
 .modes button { border: 0; border-radius: 0; padding: 6px 18px; background: var(--panel); }
 .modes button.on { background: var(--accent); color: var(--accent-ink); }
@@ -125,6 +136,7 @@ input[type=text] { padding: 6px 8px; border: 1px solid var(--line); border-radiu
       <div class="sub">规则 + Laya 本地决策模型 · 清理只移到回收站 · 整理可一键撤销</div>
     </div>
     <nav class="modes" id="modes"><button data-mode="clean" class="on">清理</button><button data-mode="org">整理</button></nav>
+    <button id="openSettings" title="永远保留的文件夹、不再提示的项、整理时的默认去处、判断阈值">⚙ 设置</button>
     <span class="pill" id="model">Laya 加载中…</span>
   </header>
 
@@ -229,6 +241,39 @@ input[type=text] { padding: 6px 8px; border: 1px solid var(--line); border-radiu
 </div>
 <div class="toast" id="toast"></div>
 
+<div class="modal" id="settings" hidden>
+  <div class="box">
+    <h2>设置</h2>
+    <div class="sub">保存后立即生效；阈值和权重会让当前结果重新分栏，下次扫描也按新设置判断。</div>
+
+    <h3>永远保留的文件夹</h3>
+    <div class="sub">这些文件夹里的东西不会出现在清理建议里，也不能从页面上删除；查重时优先保留这里的那一份。</div>
+    <div id="sKeep"></div>
+    <div class="row" style="margin-top:6px"><input type="text" id="sKeepIn" placeholder="粘贴文件夹路径"><button id="sKeepPick">选择…</button><button id="sKeepAdd">添加</button></div>
+
+    <h3>以后不再提示的项</h3>
+    <div class="sub">在清理列表里点过「不再提示」的项。</div>
+    <div id="sIgnored"></div>
+
+    <h3>整理时的默认去处</h3>
+    <div class="sub">某类文件整理时总是放到固定的文件夹，比如安装包都放到 D:\软件安装包。优先于其他判断，两种整理方式都生效。</div>
+    <div id="sDest"></div>
+    <div class="row" style="margin-top:6px"><select id="sDestType"></select><input type="text" id="sDestIn" placeholder="文件夹路径"><button id="sDestPick">选择…</button><button id="sDestAdd">添加</button></div>
+
+    <h3>判断阈值</h3>
+    <div class="row">
+      <label class="opt">清理建议分 ≥ <input type="number" id="sDel" min="50" max="95"> 建议删除</label>
+      <label class="opt">≥ <input type="number" id="sRev" min="10" max="90"> 需要你看</label>
+      <label class="opt">规则权重 <input type="number" id="sW" min="0" max="100"> %（其余给 Laya）</label>
+      <button id="sDefaults">恢复默认</button>
+    </div>
+    <div class="sub" style="margin-top:4px">个人资料、备份、疑似重复等无论阈值怎么调，最多只到「需要你看」。</div>
+
+    <div class="err" id="sErr"></div>
+    <div class="row" style="margin-top:16px; justify-content:flex-end"><button id="sCancel">取消</button><button class="primary" id="sSave">保存</button></div>
+  </div>
+</div>
+
 <script>
 const TOKEN = "__TOKEN__";
 const $ = (id) => document.getElementById(id);
@@ -321,7 +366,8 @@ async function loadResults() {
   $("ftopic").innerHTML = `<option value="">全部主题</option>` +
     Object.entries(topics).sort((a, b) => b[1] - a[1]).map(([t, n]) => `<option value="${esc(t)}">${esc(t)} · ${n}</option>`).join("");
   const s = results.stats, when = new Date(results.finished_at * 1000).toLocaleString();
-  $("stats").textContent = `${when} 扫描 ${results.drives.join(" ")}：共 ${s.files.toLocaleString()} 个文件 / ${gb(s.bytes)}，用时 ${results.seconds} 秒，跳过 ${s.programs} 个程序安装目录，${s.errors} 处无权限访问。` +
+  const nHidden = results.items.filter((i) => i.hidden).length;
+  $("stats").textContent = (nHidden ? `按你的规则隐藏了 ${nHidden} 项（「设置」里可以修改）。` : "") + `${when} 扫描 ${results.drives.join(" ")}：共 ${s.files.toLocaleString()} 个文件 / ${gb(s.bytes)}，用时 ${results.seconds} 秒，跳过 ${s.programs} 个程序安装目录，${s.errors} 处无权限访问。` +
     (results.used_laya ? "" : " 本次未使用 Laya，仅按规则判断。") + (results.stopped ? " 扫描被中途停止，结果不完整。" : "");
   $("out").hidden = false;
   render();
@@ -336,14 +382,14 @@ function inTab(it) {
 
 function filtered() {
   const ft = $("ftype").value, fp = $("ftopic").value, q = $("q").value.trim().toLowerCase(), sort = $("sort").value;
-  const arr = results.items.filter((it) => inTab(it) && (!ft || it.type === ft) && (!fp || it.topic === fp) &&
+  const arr = results.items.filter((it) => !it.hidden && inTab(it) && (!ft || it.type === ft) && (!fp || it.topic === fp) &&
     (!q || it.path.toLowerCase().includes(q) || it.name.toLowerCase().includes(q)));
   const key = { gain: (i) => i.size * i.p, size: (i) => i.size, p: (i) => i.p, age: (i) => i.age }[sort];
   return arr.sort((a, b) => key(b) - key(a));
 }
 
 function drawTiles() {
-  const live = results.items.filter((i) => !i.trashed);
+  const live = results.items.filter((i) => !i.trashed && !i.hidden);
   const sum = (f) => live.filter(f).reduce((a, i) => a + i.size, 0);
   const cnt = (f) => live.filter(f).length;
   const defs = {
@@ -383,7 +429,8 @@ function row(it) {
     <div class="verdict"><span class="badge ${it.rec}">${it.trashed ? "已移到回收站" : REC[it.rec]}</span>
       <div class="pbar"><i style="width:${(it.p * 100).toFixed(0)}%;background:${color}"></i></div>
       <span class="sub">清理建议分 ${(it.p * 100).toFixed(0)}</span>${evTag(it)}</div>
-    <button class="icon" title="在资源管理器中显示" data-reveal="${it.id}">📂</button>
+    <div class="ic2"><button class="icon" title="在资源管理器中显示" data-reveal="${it.id}">📂</button>
+      <button class="icon" title="以后不再提示这一项（可以在设置里恢复）" data-ignore="${it.id}" ${it.trashed ? "hidden" : ""}>🔕</button></div>
   </div>`;
 }
 
@@ -427,6 +474,14 @@ $("tiles").addEventListener("click", (e) => {
 });
 $("list").addEventListener("click", async (e) => {
   if (e.target.id === "more") { shown += 300; render(); return; }
+  const ig = e.target.closest("[data-ignore]");
+  if (ig) {
+    const id = +ig.dataset.ignore;
+    const r = await api("/api/rules/ignore", { ids: [id], scan_id: results.scan_id });
+    if (r.stale) { await loadResults(); return toast(r.error); }
+    selected.delete(id); await loadResults();
+    return toast(`以后不再提示「${results.items[id].name}」，可以在「设置」里恢复`);
+  }
   const rv = e.target.closest("[data-reveal]");
   if (rv) { const r = await api("/api/reveal", { id: +rv.dataset.reveal }); if (!r.ok) toast("文件已经不在原位置了"); }
 });
@@ -551,7 +606,7 @@ function orow(it) {
   const gone = !!it.moved_to;
   const opts = `<option value="">（不移动）</option>` + it.options.map((o) =>
     `<option value="${esc(o.path)}" ${odest[it.id] === o.path ? "selected" : ""}>${esc(o.label)}</option>`).join("");
-  const VIA = { name: "同名文件夹", keyword: "关键词", laya: "Laya 判断", type: "文件类型" };
+  const VIA = { name: "同名文件夹", keyword: "关键词", laya: "Laya 判断", type: "文件类型", rule: "你的规则" };
   const conf = it.dest ? `依据：${VIA[it.via] || "—"} · 建议分 ${(it.conf * 100).toFixed(0)}` : "";
   return `<div class="oit ${gone ? "gone" : ""}">
     <input type="checkbox" data-oid="${it.id}" ${osel.has(it.id) ? "checked" : ""} ${gone || !odest[it.id] ? "disabled" : ""}>
@@ -637,6 +692,56 @@ $("hist").addEventListener("click", async (e) => {
   toast(`已放回 ${r.restored} 项。` + (r.demo ? DEMO_NOTE : "") + (r.failed.length ? `\n${r.failed.length} 项没能放回（处理好后可以点「再试一次」）：\n` + r.failed.slice(0, 5).map((f) => `· ${f.name}：${f.error}`).join("\n") : ""));
   loadHistory();
 });
+
+/* ---------------- 设置 ---------------- */
+let draft = null, ruleMeta = null;
+function drawSettings() {
+  const r = draft;
+  $("sKeep").innerHTML = r.keep_dirs.length ? r.keep_dirs.map((d, i) =>
+    `<div class="li"><span class="grow">📁 ${esc(d)}</span><button data-rk="${i}">移除</button></div>`).join("") : `<div class="sub">还没有</div>`;
+  $("sIgnored").innerHTML = r.ignored.length ? r.ignored.map((e, i) =>
+    `<div class="li"><span class="grow">${esc(e.name)} <span class="sub">${esc(e.path)}</span></span><button data-ri="${i}">恢复提示</button></div>`).join("")
+    : `<div class="sub">没有</div>`;
+  const dests = Object.entries(r.type_dest);
+  $("sDest").innerHTML = dests.length ? dests.map(([t, d]) =>
+    `<div class="li"><span class="chip">${esc(t)}</span><span class="grow">→ ${esc(d)}</span><button data-rd="${esc(t)}">移除</button></div>`).join("")
+    : `<div class="sub">还没有</div>`;
+  $("sDestType").innerHTML = ruleMeta.types.map((t) => `<option>${esc(t)}</option>`).join("");
+  $("sDel").value = Math.round(r.settings.delete_at * 100);
+  $("sRev").value = Math.round(r.settings.review_at * 100);
+  $("sW").value = Math.round(r.settings.w_rule * 100);
+}
+$("openSettings").onclick = async () => {
+  ruleMeta = await api("/api/rules");
+  draft = JSON.parse(JSON.stringify(ruleMeta.rules));
+  $("sErr").textContent = ""; drawSettings(); $("settings").hidden = false;
+};
+$("sCancel").onclick = () => { $("settings").hidden = true; };
+$("settings").addEventListener("click", (e) => {
+  const d = e.target.dataset;
+  if (e.target === $("settings")) { $("settings").hidden = true; return; }
+  if (d.rk !== undefined) draft.keep_dirs.splice(+d.rk, 1);
+  else if (d.ri !== undefined) draft.ignored.splice(+d.ri, 1);
+  else if (d.rd !== undefined) delete draft.type_dest[d.rd];
+  else return;
+  drawSettings();
+});
+function readThresholds() {
+  draft.settings = { delete_at: +$("sDel").value / 100, review_at: +$("sRev").value / 100, w_rule: +$("sW").value / 100 };
+}
+$("sKeepAdd").onclick = () => { const v = $("sKeepIn").value.trim(); if (v && !draft.keep_dirs.includes(v)) draft.keep_dirs.push(v); $("sKeepIn").value = ""; readThresholds(); drawSettings(); };
+$("sKeepPick").onclick = async () => { const r = await api("/api/pick", { title: "选择永远保留的文件夹" }); if (r.path) { $("sKeepIn").value = r.path; $("sKeepAdd").click(); } };
+$("sDestAdd").onclick = () => { const v = $("sDestIn").value.trim(); if (v) draft.type_dest[$("sDestType").value] = v; $("sDestIn").value = ""; readThresholds(); drawSettings(); };
+$("sDestPick").onclick = async () => { const r = await api("/api/pick", { title: "选择默认去处" }); if (r.path) $("sDestIn").value = r.path; };
+$("sDefaults").onclick = () => { draft.settings = { ...ruleMeta.defaults }; drawSettings(); };
+$("sSave").onclick = async () => {
+  readThresholds();
+  const r = await api("/api/rules", { rules: draft });
+  if (r.errors.length) { $("sErr").textContent = "有几项没保存：\n· " + r.errors.join("\n· "); draft = r.rules; drawSettings(); }
+  else $("settings").hidden = true;
+  if (results) await loadResults();
+  toast("设置已保存" + (r.errors.length ? "（部分项有问题，见设置面板）" : ""));
+};
 
 $("target").value = store.get("target") || "";
 drawSources();

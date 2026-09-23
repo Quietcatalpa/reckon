@@ -13,10 +13,11 @@ import unittest
 from unittest import mock
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+os.environ.setdefault("RECKON_DATA", tempfile.mkdtemp(prefix="reckon_test_"))
 
-import organize  # noqa: E402
-import recycle  # noqa: E402
-import server  # noqa: E402
+from reckon import organize  # noqa: E402
+from reckon import recycle  # noqa: E402
+from reckon import server  # noqa: E402
 
 
 def make_app(results=None, plan=None):
@@ -27,6 +28,8 @@ def make_app(results=None, plan=None):
     app.lock = threading.Lock()
     app.job = {"running": False}
     app.op_running = False
+    from reckon import rules
+    app.rules = rules.defaults()
     app.results = results
     if results is not None:
         results.setdefault("scan_id", "scan-1")

@@ -5,8 +5,8 @@ import re
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
 
-import config as C
-from config import norm, under, under_any
+from . import config as C
+from .config import norm, under, under_any
 
 CHUNK = 1 << 20
 EDGE = 64 * 1024
@@ -51,10 +51,10 @@ def same_content(a, b, stop=None):
                 return True
 
 
-def _keep_score(f):
-    """分数越高越应该保留：整理过的个人目录优先，下载/临时目录和“副本”命名靠后。"""
+def _keep_score(f, prefer=()):
+    """分数越高越应该保留：你设置的“永远保留”文件夹最优先，其次整理过的个人目录；下载/临时目录和“副本”命名靠后。"""
     np_ = norm(f["path"])
-    s = 0
+    s = 5 if any(under(np_, p) for p in prefer) else 0
     if under(np_, C.TEMP_N):
         s -= 3
     if under(np_, C.DOWNLOADS_N):
@@ -90,7 +90,7 @@ def _hash_all(func, files, stop, on_each=None):
     return out
 
 
-def find_duplicates(files, on_progress, stop):
+def find_duplicates(files, on_progress, stop, prefer_dirs=()):
     by_size = defaultdict(list)
     for f in files:
         np_ = norm(f["path"])
@@ -133,7 +133,8 @@ def find_duplicates(files, on_progress, stop):
     for (size, digest, exact), copies in by_full.items():
         if len(copies) < 2:
             continue
-        copies.sort(key=_keep_score, reverse=True)
+        prefer = [norm(d) for d in prefer_dirs]
+        copies.sort(key=lambda f: _keep_score(f, prefer), reverse=True)
         groups.append({"hash": digest, "size": size, "exact": exact,
                        "keep": copies[0]["path"], "copies": [c["path"] for c in copies[1:]]})
     on_progress(f"比对重复文件完成，找到 {len(groups)} 组", 1.0)

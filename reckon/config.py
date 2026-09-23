@@ -1,14 +1,32 @@
 """路径与类型规则：哪些目录绝不碰、哪些目录算缓存、文件怎么分类。"""
 import os
+import shutil
+import sys
 import winreg
 
 HOME = os.path.expanduser("~")
 LOCALAPPDATA = os.environ.get("LOCALAPPDATA", os.path.join(HOME, "AppData", "Local"))
 APPDATA = os.environ.get("APPDATA", os.path.join(HOME, "AppData", "Roaming"))
 TEMP = os.path.join(LOCALAPPDATA, "Temp")
-TOOL_DIR = os.path.dirname(os.path.abspath(__file__))
-RESULTS_FILE = os.path.join(TOOL_DIR, "results", "last_scan.json")
-LAYA_CACHE_FILE = os.path.join(TOOL_DIR, "results", "laya_cache.json")  # 记住每个文件的模型判断
+TOOL_DIR = os.path.dirname(os.path.abspath(__file__))       # reckon 包本身（打包成 exe 时在 _internal 里）
+PROJECT_DIR = os.path.dirname(TOOL_DIR)                     # 源码仓库根目录 / exe 所在目录
+APP_DIR = os.path.dirname(sys.executable) if getattr(sys, "frozen", False) else PROJECT_DIR
+# 扫描结果、判断缓存、整理记录、个人规则都存在用户自己的应用数据目录里，
+# 工具放在 Program Files 之类没有写权限的地方也能用。可以用环境变量 RECKON_DATA 改位置（测试时用）。
+DATA_DIR = os.environ.get("RECKON_DATA") or os.path.join(LOCALAPPDATA, "Reckon")
+RESULTS_FILE = os.path.join(DATA_DIR, "last_scan.json")
+LAYA_CACHE_FILE = os.path.join(DATA_DIR, "laya_cache.json")  # 记住每个文件的模型判断
+HISTORY_DIR = os.path.join(DATA_DIR, "organize_history")
+RULES_FILE = os.path.join(DATA_DIR, "rules.json")            # 个人规则和阈值设置
+
+
+def migrate_old_data():
+    """以前的版本把数据放在工具目录的 results/ 里，第一次运行新版本时搬到 DATA_DIR（只搬一次，不覆盖）。"""
+    old = os.path.join(PROJECT_DIR, "results")
+    if not os.path.isdir(old) or os.path.exists(DATA_DIR):
+        return False
+    shutil.copytree(old, DATA_DIR)
+    return True
 HF_HUB = os.path.join(os.environ.get("HF_HOME", os.path.join(HOME, ".cache", "huggingface")), "hub")
 LAYA_REPO = os.path.join(HF_HUB, "models--convaiinnovations--laya-multilingual")
 HOME_CACHE = os.path.join(HOME, ".cache")
@@ -69,6 +87,9 @@ PROTECTED_NS = [norm(p) for p in (
     os.path.join(TEMP, "claude"),
     os.path.join(HOME, ".claude"),
     TOOL_DIR,
+    PROJECT_DIR,
+    APP_DIR,
+    DATA_DIR,
     LAYA_REPO,
 )]
 # 目录里出现这些文件/文件夹，说明是已安装的程序或 conda 环境，整个跳过

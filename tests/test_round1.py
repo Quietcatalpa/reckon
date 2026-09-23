@@ -16,15 +16,16 @@ import zipfile
 from unittest import mock
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+os.environ.setdefault("RECKON_DATA", tempfile.mkdtemp(prefix="reckon_test_"))
 
-import config as C  # noqa: E402
-import decide  # noqa: E402
-import dupes  # noqa: E402
-import extract  # noqa: E402
-import organize  # noqa: E402
-import recycle  # noqa: E402
-import scanner  # noqa: E402
-import server  # noqa: E402
+from reckon import config as C  # noqa: E402
+from reckon import decide  # noqa: E402
+from reckon import dupes  # noqa: E402
+from reckon import extract  # noqa: E402
+from reckon import organize  # noqa: E402
+from reckon import recycle  # noqa: E402
+from reckon import scanner  # noqa: E402
+from reckon import server  # noqa: E402
 from test_safety import make_app, write  # noqa: E402
 
 

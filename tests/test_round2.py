@@ -14,11 +14,12 @@ import unittest
 from collections import defaultdict
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+os.environ.setdefault("RECKON_DATA", tempfile.mkdtemp(prefix="reckon_test_"))
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "docs", "eval"))
 
-import config as C  # noqa: E402
-import decide  # noqa: E402
-import dupes  # noqa: E402
+from reckon import config as C  # noqa: E402
+from reckon import decide  # noqa: E402
+from reckon import dupes  # noqa: E402
 from test_safety import write  # noqa: E402
 
 

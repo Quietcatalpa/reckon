@@ -1,4 +1,4 @@
-"""生成演示模式用的虚构数据（python server.py --demo 时加载，也用来给 README 截图）。
+"""生成演示模式用的虚构数据（python -m reckon --demo 时加载，也用来给 README 截图）。
 
 所有路径、文件名、分类和数字都是编的：一个虚构的上班族“demo”的电脑，不对应任何真实的人或电脑。
 """
@@ -6,6 +6,7 @@ import json
 import os
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+OUT_DIR = os.path.join(os.path.dirname(os.path.dirname(HERE)), "reckon", "demo")  # 演示数据随程序一起发布
 NOW = 1790000000.0  # 固定时间，保证每次生成的数据一样
 GB, MB = 1 << 30, 1 << 20
 DL = r"D:\Downloads"
@@ -112,7 +113,7 @@ def org(name, dest_rel, via, conf, reason, ftype, size, is_dir=False, status=Non
                        "reason": reason, "options": options, "status": status or ("ok" if dest else "choose")})
 
 
-org("日本旅行攻略.pdf", r"04_旅行\日本", "name", 0.9, "名字里有“日本”，与已有文件夹同名", "文档", 12 * MB)
+org("三亚旅行攻略.pdf", r"04_旅行\三亚", "name", 0.9, "名字里有“三亚”，与已有文件夹同名", "文档", 12 * MB)
 org("客户提案_v3.pptx", r"01_工作项目\客户提案", "name", 0.9, "名字里有“客户提案”，与已有文件夹同名", "文档", 18 * MB)
 org("周报_第38周.docx", r"01_工作项目\周报", "name", 0.9, "名字里有“周报”，与已有文件夹同名", "文档", 0.3 * MB)
 org("云南照片精选", r"04_旅行\云南", "name", 0.9, "名字里有“云南”，与已有文件夹同名", "文件夹", 850 * MB, True)
@@ -127,6 +128,6 @@ plan = {"mode": "topic", "target": LIB, "sources": [DL], "items": plan_items, "n
         "created": NOW}
 
 for fn, data in (("scan.json", scan), ("plan.json", plan)):
-    with open(os.path.join(HERE, fn), "w", encoding="utf-8") as f:
+    with open(os.path.join(OUT_DIR, fn), "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=1)
 print("ok", len(items), "items,", len(plan_items), "plan items")

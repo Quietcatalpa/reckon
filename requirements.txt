@@ -1,11 +1,15 @@
-# 决策模型（会一并安装 torch、transformers、huggingface_hub）
-laya>=0.3.6
-# 移到回收站（pywin32 让 Send2Trash 用更安全的系统接口；另外删除前本工具会检查回收站容量）
+# 从源码运行需要的依赖（不需要 torch）
 Send2Trash>=1.8
 pywin32>=306; sys_platform == "win32"
+# 决策模型：onnxruntime 跑导出的 Laya 模型
+onnxruntime>=1.18
+onnx>=1.16
+tokenizers>=0.19
+numpy
 # 读取文档内容片段
 python-docx>=1.1
 python-pptx>=1.0
 openpyxl>=3.1
-# 可选：读取 PDF 内容。PyMuPDF 是 AGPL-3.0 许可，不装的话 PDF 只按文件信息判断
-# PyMuPDF>=1.24
+# 可选：
+#   PyMuPDF>=1.24   读取 PDF 内容（AGPL-3.0 许可）
+#   laya>=0.3.6     用原版模型（会装 torch、transformers），或用 scripts/export_onnx.py 导出 ONNX

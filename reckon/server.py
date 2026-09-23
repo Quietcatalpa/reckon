@@ -1,6 +1,7 @@
 """本地网页服务：只监听 127.0.0.1。清理：查看建议、勾选后移到回收站；整理：生成方案、确认后移动、可撤销。
 
-用法：python server.py [--port 8765] [--no-laya] [--no-browser] [--organize 路径 ...]
+用法：python -m reckon [--port 8765] [--no-laya] [--no-browser] [--demo] [--organize 路径 ...]
+      python -m reckon --install-sendto / --remove-sendto
 """
 import argparse
 import json
@@ -15,19 +16,20 @@ import time
 import traceback
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-import config as C
-import decide
-import dupes
-import organize
-import recycle
-import scanner
-from config import norm
+from . import config as C
+from . import decide
+from . import dupes
+from . import organize
+from . import recycle
+from . import rules
+from . import scanner
+from .config import norm
 
 WEB_DIR = os.path.join(C.TOOL_DIR, "web")
 TOKEN = secrets.token_urlsafe(24)
 
 
-DEMO_DIR = os.path.join(C.TOOL_DIR, "docs", "demo")
+DEMO_DIR = os.path.join(C.TOOL_DIR, "demo")
 # 演示模式：清理和整理只在内存里模拟，界面照常变化，磁盘上什么都不动
 STALE = "页面上的结果已经过期（可能在别的页面重新扫描或生成了方案），请刷新页面后重新选择"
 BUSY = "另一项操作正在进行（扫描、生成方案、删除、整理或撤销），请等它完成后再试"
@@ -49,6 +51,8 @@ class App:
         self.demo_history = []
         # 同一时间只做一件事：扫描/生成方案（后台任务）和删除/整理/撤销（改动文件的操作）互斥
         self.op_running = False
+        self.rules = rules.defaults() if demo else rules.load()
+        rules.apply_settings(self.rules)
         if demo:
             with open(os.path.join(DEMO_DIR, "scan.json"), encoding="utf-8") as f:
                 self.results = json.load(f)
@@ -124,7 +128,8 @@ class App:
                     self._set(message="等待 Laya 模型加载完成…")
                     self.judge.ready.wait()
                 judge = self.judge
-            planner = organize.Planner(mode, target or None, judge, int(opts.get("max_laya", 300)))
+            planner = organize.Planner(mode, target or None, judge, int(opts.get("max_laya", 300)),
+                                       type_dest=self.rules["type_dest"])
             if mode == "topic" and not planner.tops:
                 raise ValueError("目标文件夹里没有子文件夹，没有可以放进去的分类")
             items = planner.plan(units, lambda m, p: self._set(message=m, progress=p), self.stop)
@@ -175,7 +180,8 @@ class App:
             dup_groups = []
             if opts.get("dupes", True) and not self.stop.is_set():
                 self._set(message="比对重复文件…", progress=0.0)
-                dup_groups = dupes.find_duplicates(res.files, lambda m, p: self._set(message=m, progress=p), self.stop)
+                dup_groups = dupes.find_duplicates(res.files, lambda m, p: self._set(message=m, progress=p), self.stop,
+                                                   prefer_dirs=self.rules["keep_dirs"])
             judge = None
             if self.judge and opts.get("use_laya", True) and not self.stop.is_set():
                 if not self.judge.ready.is_set():
@@ -239,8 +245,12 @@ class App:
         chosen = [it for it in (self._item(i) for i in ids) if it and not it.get("trashed")]
         # 先删重复副本（此时保留的那份一定还在），再删其他
         chosen.sort(key=lambda it: it["kind"] != "dupe")
+        ignored = {e["key"] for e in self.rules["ignored"]}
         for it in chosen:
             try:
+                why = rules.hidden_reason(it, self.rules, ignored)
+                if why:
+                    raise RuntimeError(why + "，没有删除")
                 if it["kind"] == "dupe":
                     self._check_keep(it)
                 paths = it.get("paths") or [it["path"]]
@@ -294,6 +304,40 @@ class App:
             raise RuntimeError("保留的那份已经不在了，为安全起见不删除这份")
         if it.get("keep_mtime") and int(os.path.getmtime(keep)) != int(it["keep_mtime"]):
             raise RuntimeError("保留的那份在扫描后被修改过，请重新扫描")
+
+    def results_view(self):
+        """给页面看的结果：按当前规则标出要隐藏的项，并按当前阈值重新分栏（不改动保存的结果）。"""
+        if not self.results:
+            return {}
+        ignored = {e["key"] for e in self.rules["ignored"]}
+        items = []
+        for it in self.results.get("items", []):
+            v = dict(it)
+            v["hidden"] = rules.hidden_reason(it, self.rules, ignored)
+            v["rec"] = decide._rec(it["p"], it.get("capped", False))
+            items.append(v)
+        return dict(self.results, items=items)
+
+    def set_rules(self, new):
+        clean, errors = rules.validate(new)
+        if not self.demo:
+            rules.save(clean)
+        self.rules = clean
+        rules.apply_settings(clean)
+        return {"rules": clean, "errors": errors}
+
+    def ignore(self, ids, scan_id):
+        if not self.results or scan_id != self.results.get("scan_id"):
+            return {"ok": False, "error": STALE, "stale": True}
+        have = {e["key"] for e in self.rules["ignored"]}
+        for i in ids:
+            it = self._item(i)
+            if it and rules.item_key(it) not in have:
+                self.rules["ignored"].append({"key": rules.item_key(it), "name": it["name"], "path": it["path"]})
+                have.add(rules.item_key(it))
+        if not self.demo:
+            rules.save(self.rules)
+        return {"ok": True}
 
     def reveal(self, iid, organize_plan=False):
         if self.demo:
@@ -407,7 +451,9 @@ def make_handler(app, port):
                                  "scan_id": (app.results or {}).get("scan_id"),
                                  "plan_id": (app.plan or {}).get("plan_id")})
             elif self.path == "/api/results":
-                self._send(200, app.results or {})
+                self._send(200, app.results_view())
+            elif self.path == "/api/rules":
+                self._send(200, {"rules": app.rules, "types": rules.TYPES, "defaults": rules.DEFAULT_SETTINGS})
             elif self.path == "/api/organize/plan":
                 self._send(200, app.plan or {})
             elif self.path == "/api/organize/history":
@@ -438,6 +484,10 @@ def make_handler(app, port):
                 self._send(200, app.trash([int(i) for i in body.get("ids", [])], body.get("scan_id")))
             elif self.path == "/api/reveal":
                 self._send(200, {"ok": app.reveal(int(body.get("id", -1)))})
+            elif self.path == "/api/rules":
+                self._send(200, app.set_rules(body.get("rules") or {}))
+            elif self.path == "/api/rules/ignore":
+                self._send(200, app.ignore([int(i) for i in body.get("ids", [])], body.get("scan_id")))
             elif self.path == "/api/pick":
                 self._send(200, {"path": pick_folder(body.get("title") or "选择文件夹")})
             elif self.path == "/api/organize/reveal":
@@ -480,11 +530,21 @@ def main():
     ap.add_argument("--no-laya", action="store_true", help="不加载模型，只用规则")
     ap.add_argument("--no-browser", action="store_true")
     ap.add_argument("--demo", action="store_true", help="演示模式：只展示 docs/demo 里的示例数据，不扫描、不改动文件")
+    ap.add_argument("--install-sendto", action="store_true", help="在右键“发送到”菜单里加上“盘算 - 整理”")
+    ap.add_argument("--remove-sendto", action="store_true", help="从“发送到”菜单里去掉")
     ap.add_argument("--organize", nargs="*", metavar="PATH",
                     help="打开整理页面并填入这些文件/文件夹（拖到 整理.bat 上或右键发送到时使用）")
     args = ap.parse_args()
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8")
+
+    if args.install_sendto or args.remove_sendto:
+        from . import sendto
+        lnk = sendto.install() if args.install_sendto else sendto.remove()
+        print(("已添加：" if args.install_sendto else "已移除：") + str(lnk) if lnk else "“发送到”菜单里没有本工具的快捷方式")
+        return
+    if not args.demo and C.migrate_old_data():
+        print(f"已把旧版本的扫描结果和整理记录搬到 {C.DATA_DIR}")
 
     fragment = ""
     if args.organize is not None:

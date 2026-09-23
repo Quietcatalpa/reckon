@@ -7,6 +7,8 @@
 Windows 磁盘清理 + 文件整理 · 规则 + [Laya](https://huggingface.co/convaiinnovations/laya) 本地决策模型 ·
 不联网 · 只进回收站 · 整理可一键撤销
 
+中文 · [English](README_EN.md)
+
 ![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white)
 ![Windows](https://img.shields.io/badge/Windows-10%20%7C%2011-0078D6?logo=windows&logoColor=white)
 ![Local](https://img.shields.io/badge/100%25-本地运行-2f6f5e)
@@ -24,7 +26,7 @@ Windows 磁盘清理 + 文件整理 · 规则 + [Laya](https://huggingface.co/co
 - **🧹 清理**：扫描 C/D 盘，给每个候选文件一个「清理建议分」、理由和判断依据，分成
   建议删除 / 需要你看 / 建议保留 / 重复文件 / 缓存目录。勾选后移到回收站，删错了能找回。
 - **🗂️ 整理**：把「下载」这类乱七八糟的文件夹交给它，它按你**已经分好类的文件夹**给出去处
-  （比如「日本旅行攻略.pdf」→ `04_旅行\日本`），或按文件类型分好。预览、修改、确认后才移动，每次都能一键撤销。
+  （比如「三亚旅行攻略.pdf」→ `04_旅行\三亚`），或按文件类型分好。预览、修改、确认后才移动，每次都能一键撤销。
 - **📖 会读内容**：Word、PPT、Excel、PDF、文本、代码会读开头一段再判断，分得清「课件」和「软件压缩包」。
 - **🔒 全在本机**：模型在你电脑上跑，文件名和内容不会上传到任何地方。
 
@@ -54,7 +56,7 @@ Windows 磁盘清理 + 文件整理 · 规则 + [Laya](https://huggingface.co/co
 </picture>
 </div>
 
-> 截图和动图都来自演示模式，里面的文件是虚构的。你也可以运行 `python server.py --demo` 自己点一点：
+> 截图和动图都来自演示模式，里面的文件是虚构的。你也可以运行 `Reckon.exe --demo`（或 `python -m reckon --demo`）自己点一点：
 > 清理和整理都只是模拟，不会改动任何文件。界面改了之后，用 `python docs/demo/capture.py` 可以重新生成截图和动图。
 
 ## 工作原理
@@ -91,25 +93,53 @@ flowchart LR
 
 ## 快速开始
 
-需要 Windows 10/11 和 Python 3.10+。
+### 方式一：下载 exe（推荐）
 
-```bash
-pip install -r requirements.txt
-pip install PyMuPDF   # 可选：让它也能读 PDF 内容（AGPL-3.0 许可）
-
-# 下载 Laya 多语言模型（约 640MB，之后离线使用；不下载也能用，只是只按规则判断）
-python -c "from huggingface_hub import snapshot_download; snapshot_download('convaiinnovations/laya-multilingual')"
-```
-
-然后双击 **`启动.bat`**，浏览器会打开 `http://127.0.0.1:8765/`。
+1. 到 [Releases](https://github.com/Quietcatalpa/reckon/releases) 下载 `Reckon-<版本>-win64.zip`（已包含 Laya 模型，不需要装 Python）；
+2. 解压到任意文件夹，双击 **`Reckon.exe`**，浏览器会打开 `http://127.0.0.1:8765/`，关掉黑色窗口就退出。
 
 | 想做什么 | 怎么做 |
 |---|---|
-| 先看看效果，不碰任何文件（操作都是模拟的） | `python server.py --demo` |
-| 只用规则、不加载模型 | `python server.py --no-laya` |
-| 整理某个文件夹 | 把它拖到 `整理.bat` 上 |
-| 跑安全相关的测试 | `python -m unittest discover -s tests -v` |
-| 在右键菜单里加「发送到 → 盘算 - 整理」 | 运行一次 `添加到右键发送到菜单.bat`（去掉：`python sendto.py --remove`） |
+| 先看看效果，不碰任何文件（操作都是模拟的） | `Reckon.exe --demo` |
+| 整理某个文件夹 | 把它拖到 `Reckon.exe` 上 |
+| 在右键菜单里加「发送到 → 盘算 - 整理」 | `Reckon.exe --install-sendto`（去掉：`--remove-sendto`） |
+
+### 方式二：从源码运行
+
+需要 Windows 10/11 和 Python 3.10+。
+
+```bash
+pip install -r requirements.txt   # 很轻，不需要 torch
+python -m reckon                  # 或者双击 scripts\启动.bat
+```
+
+模型二选一，都没有也能用（只按规则判断）：
+
+- 把发布包里的 `model` 文件夹放到 `%LOCALAPPDATA%\Reckon\model`（或用环境变量 `RECKON_MODEL_DIR` 指定）；
+- 或者用原版：`pip install laya`（会装 torch），再下载模型
+  `python -c "from huggingface_hub import snapshot_download; snapshot_download('convaiinnovations/laya-multilingual')"`。
+  之后可以运行 `python scripts/export_onnx.py` 转成 ONNX，结果和原版一致。
+
+可选：`pip install PyMuPDF` 让它也能读 PDF 内容（AGPL-3.0 许可，发布版不带）。
+
+| 想做什么 | 怎么做 |
+|---|---|
+| 演示模式 / 只用规则 | `python -m reckon --demo` / `python -m reckon --no-laya` |
+| 整理某个文件夹 | 把它拖到 `scripts\整理.bat` 上 |
+| 「发送到」菜单 | `python -m reckon --install-sendto` |
+| 跑测试 | `python -m unittest discover -s tests -v` |
+| 打包 exe | `python scripts/export_onnx.py` 然后 `python scripts/build_exe.py` |
+
+扫描结果、判断缓存、整理记录和个人规则都存在 `%LOCALAPPDATA%\Reckon` 里，不在程序目录；删掉这个文件夹就清空了所有记录。
+
+## 个人规则
+
+右上角「⚙ 设置」里可以：
+
+- **永远保留的文件夹**：里面的东西不会出现在清理建议里，也不能从页面上删除；查重时优先保留这里的那一份；
+- **以后不再提示**：清理列表每行右边的 🔕，点过的项以后不再出现，可以在设置里恢复；
+- **整理时的默认去处**：比如安装包总是放到 `D:\软件安装包`，优先于其他判断；
+- **判断阈值**：「建议删除」「需要你看」两条线和规则权重。个人资料、备份、疑似重复等不管阈值怎么调，最多只到「需要你看」。
 
 ## 要多久
 
@@ -169,4 +199,5 @@ Laya 是开源的、能完全在本机运行的「决策模型」：不生成文
 
 ## 许可证
 
-[MIT](LICENSE)。Laya 模型权重另按 Apache-2.0 发布；可选依赖 PyMuPDF 为 AGPL-3.0，不随本项目分发。
+[MIT](LICENSE)。Laya 模型权重和移植的少量代码为 Apache-2.0，发布包附带的运行库各有许可证，见 [第三方许可说明](THIRD_PARTY_NOTICES.md)。
+可选依赖 PyMuPDF 为 AGPL-3.0，不随发布包分发。

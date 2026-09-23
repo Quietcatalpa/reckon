@@ -212,7 +212,7 @@ def main():
     hidden = subprocess.STARTUPINFO() if os.name == "nt" else None
     if hidden:
         hidden.dwFlags |= subprocess.STARTF_USESHOWWINDOW  # wShowWindow 默认 0 = 隐藏
-    srv = subprocess.Popen([sys.executable, "server.py", "--demo", "--no-browser", "--port", str(PORT)],
+    srv = subprocess.Popen([sys.executable, "-m", "reckon", "--demo", "--no-browser", "--port", str(PORT)],
                            cwd=TOOL_DIR, creationflags=new_console, startupinfo=hidden)
     br = subprocess.Popen([browser, "--headless=new", "--disable-gpu", "--hide-scrollbars", "--no-first-run",
                            f"--remote-debugging-port={DEBUG_PORT}", "--remote-allow-origins=*",

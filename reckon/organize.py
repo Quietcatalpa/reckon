@@ -13,12 +13,12 @@ import re
 import shutil
 import time
 
-import config as C
-import extract
-import scanner
-from config import norm, under
+from . import config as C
+from . import extract
+from . import scanner
+from .config import norm, under
 
-HISTORY_DIR = os.path.join(C.TOOL_DIR, "results", "organize_history")
+HISTORY_DIR = C.HISTORY_DIR
 SKIP_NAMES = {"desktop.ini", "thumbs.db", ".ds_store"}
 SKIP_EXTS = {".lnk", ".url"}
 HIDDEN_OR_SYSTEM = 0x2 | 0x4
@@ -188,11 +188,12 @@ def collect_units(sources, target_root):
 
 
 class Planner:
-    def __init__(self, mode, target_root, judge=None, max_laya=300):
+    def __init__(self, mode, target_root, judge=None, max_laya=300, type_dest=None):
         self.mode = mode
         self.target_root = target_root
         self.judge = judge if judge is not None and judge.status == "ready" else None
         self.max_laya = max_laya
+        self.type_dest = type_dest or {}  # 个人规则：某类文件默认放到哪（优先于其他判断）
         self.index = build_index(target_root) if mode == "topic" else []
         self.tops = [f for f in self.index if f["depth"] == 1]
         self.match_list = [f for f in self.index if _usable(f["clean"])]
@@ -245,6 +246,10 @@ class Planner:
                 self._plan_type(it, parent)
             else:
                 n_laya = self._plan_topic(it, u, ext, n_laya)
+            rule_dest = None if u["is_dir"] else self.type_dest.get(ftype)
+            if rule_dest:
+                it.update(dest=rule_dest, via="rule", conf=1.0, reason=f"你的规则：{ftype}默认放到这里")
+                it["options"] = self._options(rule_dest, [o for o in it["options"] if o != rule_dest])
             if it["dest"] and norm(it["dest"]) == norm(parent):
                 it["dest"], it["via"], it["reason"] = None, "same", "已经在合适的位置"
             if it["dest"] and under(norm(it["dest"]), norm(u["path"])):

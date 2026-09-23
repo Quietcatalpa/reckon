@@ -2,8 +2,8 @@
 import os
 import time
 
-import config as C
-from config import norm, under
+from . import config as C
+from .config import norm, under
 
 KEEP_MIN_BYTES = 1 << 20  # 1MB 以下的文件不记录（清理价值太小）
 FILE_ATTRIBUTE_SYSTEM = 0x4

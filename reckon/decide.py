@@ -9,10 +9,10 @@ import warnings
 import zipfile
 from concurrent.futures import ThreadPoolExecutor
 
-import config as C
-import extract
-from config import norm, under, under_any
-from dupes import COPY_NAME
+from . import config as C
+from . import extract
+from .config import norm, under, under_any
+from .dupes import COPY_NAME
 
 DELETE_AT = 0.70   # 清理建议分 >= 70 建议删除
 REVIEW_AT = 0.40   # 40 ~ 70 需要你看；更低建议保留
@@ -47,6 +47,15 @@ TOPIC_KEYWORDS = [
 ]
 
 
+def _find_onnx_model():
+    """exe 版和导出过 ONNX 的源码目录用这个，不需要 torch。"""
+    for d in (os.environ.get("RECKON_MODEL_DIR"), os.path.join(C.APP_DIR, "model"), os.path.join(C.DATA_DIR, "model"),
+              os.path.join(C.PROJECT_DIR, "build", "laya-onnx")):
+        if d and os.path.exists(os.path.join(d, "laya_meta.json")):
+            return d
+    return None
+
+
 def _find_local_model():
     override = os.environ.get("LAYA_MODEL_DIR")
     if override and os.path.exists(os.path.join(override, "rl_agent_config.json")):
@@ -63,23 +72,36 @@ class LayaJudge:
     def __init__(self):
         self.agent = None
         self.model_id = None
+        self.backend = None
         self.status = "loading"  # loading / ready / missing / error
         self.error = None
         self.ready = threading.Event()
         self._lock = threading.Lock()
 
     def load(self):
+        """优先用 ONNX 版（不需要 torch）；找不到再用装好的 laya + torch 读 Hugging Face 缓存里的原版。
+        两者结果一致，model_id 都是原模型快照的名字，所以判断缓存可以共用。"""
         try:
+            onnx_dir = _find_onnx_model()
+            if onnx_dir:
+                from .laya_onnx import OnnxAgent
+                fp32 = os.path.join(onnx_dir, "model.onnx")
+                self.agent = OnnxAgent(onnx_dir, "model.onnx" if os.path.exists(fp32) else None)
+                self.model_id = self.agent.meta.get("source_snapshot")
+                self.backend = "onnx"
+                self.status = "ready"
+                return
             path = _find_local_model()
             if path is None:
                 self.status = "missing"
-                self.error = "没有找到本地的 convaiinnovations/laya-multilingual 模型"
+                self.error = "没有找到 Laya 模型（exe 版应在 model 文件夹里；源码运行请看 README 的下载说明）"
                 return
             os.environ["HF_HUB_OFFLINE"] = "1"
             warnings.filterwarnings("ignore")
             import laya
             self.agent = laya.load(path)
             self.model_id = os.path.basename(os.path.normpath(path))
+            self.backend = "torch"
             self.status = "ready"
         except Exception as e:  # noqa: BLE001
             self.status = "error"
@@ -126,8 +148,11 @@ def fuse(rule_p, laya_delete, capped):
     return min(p, PERSONAL_CAP) if capped else p
 
 
-def _rec(p):
-    return "delete" if p >= DELETE_AT else "review" if p >= REVIEW_AT else "keep"
+def _rec(p, capped=False):
+    """capped：个人资料、备份、疑似重复等，不管分数多高、阈值怎么调，最多到“需要你看”。"""
+    if p >= DELETE_AT:
+        return "review" if capped else "delete"
+    return "review" if p >= REVIEW_AT else "keep"
 
 
 def _zip_name(info):
@@ -273,7 +298,7 @@ def _priority(item):
 def _apply(item, delete, read, cached):
     p = fuse(item["_rule"], delete, item["_capped"])
     item["p"] = round(p, 3)
-    item["rec"] = _rec(p)
+    item["rec"] = _rec(p, item["_capped"])
     item["laya"] = {"delete": round(delete, 3), "read": read, "cached": cached}
     how = "已读内容" if read else "仅看文件信息"
     item["reasons"].append(f"Laya：倾向删除 {delete:.0%}（{how}{'，沿用上次的判断' if cached else ''}）")
@@ -406,8 +431,8 @@ def build_items(scan, dup_groups, judge, opts, on_progress, stop, cache=None):
             keep = by_path.get(dg["keep"]) or {}
             it = add({"kind": "dupe", "name": os.path.basename(cp), "path": cp, "size": f["size"],
                       "mtime": f["mtime"], "age": age, "type": C.file_type(os.path.splitext(cp)[1].lower()),
-                      "topic": keyword_topic(cp), "p": p, "rec": _rec(p), "dup_of": dg["keep"], "dup_group": gi,
-                      "exact": dg["exact"], "keep_mtime": keep.get("mtime"),
+                      "topic": keyword_topic(cp), "p": p, "rec": _rec(p, not dg["exact"]), "dup_of": dg["keep"],
+                      "dup_group": gi, "exact": dg["exact"], "capped": not dg["exact"], "keep_mtime": keep.get("mtime"),
                       "reasons": ["与保留的那份内容完全相同（完整比对）" if dg["exact"]
                                   else "疑似重复：超大文件只抽样比对过，删除前会完整比对"],
                       "laya": None})
@@ -437,8 +462,8 @@ def build_items(scan, dup_groups, judge, opts, on_progress, stop, cache=None):
         if capped:
             p = min(p, PERSONAL_CAP)
         item = add({"kind": "file", "name": name, "path": f["path"], "size": f["size"], "mtime": f["mtime"],
-                    "age": age, "type": ftype, "topic": keyword_topic(f["path"]), "p": p, "rec": _rec(p), "reasons": reasons,
-                    "laya": None, "_rule": p, "_capped": capped, "_ext": ext, "_cloud": f["cloud"]})
+                    "age": age, "type": ftype, "topic": keyword_topic(f["path"]), "p": p, "rec": _rec(p, capped),
+                    "reasons": reasons, "capped": capped, "laya": None, "_rule": p, "_capped": capped, "_ext": ext, "_cloud": f["cloud"]})
         if ftype not in C.NO_MODEL_TYPES and not skip_model:
             pending.append(item)
     if use_laya:

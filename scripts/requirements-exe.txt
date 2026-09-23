@@ -1,0 +1,12 @@
+# 打包 exe 用的依赖：不含 torch / transformers / laya（exe 里用 onnxruntime 跑导出的模型），
+# 也不含 PyMuPDF（AGPL-3.0，发布版不读 PDF 内容，只看文件信息）
+Send2Trash>=1.8
+pywin32>=306
+onnxruntime>=1.18
+onnx>=1.16
+tokenizers>=0.19
+numpy
+python-docx>=1.1
+python-pptx>=1.0
+openpyxl>=3.1
+pyinstaller>=6.10
