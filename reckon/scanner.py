@@ -1,4 +1,5 @@
 """遍历磁盘：收集 1MB 以上的文件，把缓存目录整块记为一组，跳过系统和程序目录。"""
+import hashlib
 import os
 import time
 
@@ -56,6 +57,54 @@ def _looks_like_program(d, names):
     return "resources" in names and os.path.exists(os.path.join(d, "resources", "app.asar"))
 
 
+def fingerprint(path, stop=None):
+    """目录（或单个文件）的“成员清单指纹”：每个文件的相对路径、大小、修改时间一起算一个摘要。
+    扫描后往里复制旧文件时修改时间不变，只比“最新修改时间”会漏掉；比清单就不会。
+    errors 是读不了的子目录/文件数，大于 0 时说明清单不完整，调用方应当跳过这个目录。"""
+    entries, errors = [], 0
+    size = count = 0
+    newest = 0.0
+    if not os.path.isdir(path):
+        try:
+            st = os.stat(path)
+            entries.append((os.path.basename(path), st.st_size, int(st.st_mtime)))
+            size, count, newest = st.st_size, 1, st.st_mtime
+        except OSError:
+            errors += 1
+    else:
+        stack = [path]
+        while stack:
+            if stop is not None and stop.is_set():
+                errors += 1
+                break
+            d = stack.pop()
+            try:
+                it = list(os.scandir(d))
+            except OSError:
+                errors += 1
+                continue
+            for e in it:
+                rel = os.path.relpath(e.path, path)
+                try:
+                    if _is_link(e):
+                        entries.append((rel, "link", 0))
+                    elif e.is_dir(follow_symlinks=False):
+                        entries.append((rel, "dir", 0))
+                        stack.append(e.path)
+                    else:
+                        st = e.stat(follow_symlinks=False)
+                        entries.append((rel, st.st_size, int(st.st_mtime)))
+                        size += st.st_size
+                        count += 1
+                        newest = max(newest, st.st_mtime)
+                except OSError:
+                    errors += 1
+    h = hashlib.sha1()
+    for rel, sz, mt in sorted(entries, key=lambda x: x[0]):
+        h.update(f"{rel}|{sz}|{mt}\n".encode("utf-8", "surrogatepass"))
+    return {"size": size, "count": count, "newest": newest, "digest": h.hexdigest(), "errors": errors}
+
+
 class ScanResult:
     def __init__(self):
         self.files = []       # 1MB 以上的普通文件
@@ -66,7 +115,7 @@ class ScanResult:
         self.n_programs = 0   # 跳过的程序安装目录数
 
 
-def _add_group(res, key, label, path, size, count, newest, p, hint, strict=False):
+def _add_group(res, key, label, path, size, count, newest, p, hint, strict=False, stamp=None):
     """strict=True 的组（临时文件、解压的软件、模型缓存等）删除前要确认扫描后没有新变化；
     应用缓存本来就一直在变、随时能重新生成，不做这个检查。"""
     g = res.groups.get(key)
@@ -74,10 +123,17 @@ def _add_group(res, key, label, path, size, count, newest, p, hint, strict=False
         g = res.groups[key] = {"key": key, "label": label, "paths": [], "stamps": [], "size": 0, "count": 0,
                                "newest": 0.0, "p": p, "hint": hint, "strict": strict}
     g["paths"].append(path)
-    g["stamps"].append(newest)
+    # 需要检查变化的组，记下成员清单指纹；其他组只记最新修改时间
+    g["stamps"].append((stamp or fingerprint(path)) if strict else newest)
     g["size"] += size
     g["count"] += count
     g["newest"] = max(g["newest"], newest)
+
+
+def _add_strict(res, key, label, path, stop, p, hint):
+    """需要删除前核对的组：统计大小和记成员清单一次遍历完成。"""
+    fp = fingerprint(path, stop)
+    _add_group(res, key, label, path, fp["size"], fp["count"], fp["newest"], p, hint, strict=True, stamp=fp)
 
 
 def _app_label(path, nd):
@@ -102,18 +158,15 @@ def _scan_temp(res, stop):
             return
         if _is_link(e) or C.is_protected(norm(e.path)):
             continue
+        fp = fingerprint(e.path, stop)
         try:
-            if e.is_dir(follow_symlinks=False):
-                size, count, newest = dir_stats(e.path, stop)
-                newest = newest or e.stat(follow_symlinks=False).st_mtime
-            else:
-                st = e.stat(follow_symlinks=False)
-                size, count, newest = st.st_size, 1, st.st_mtime
+            newest = fp["newest"] or e.stat(follow_symlinks=False).st_mtime
         except OSError:
             continue
         if newest < cutoff:
-            _add_group(res, "temp", "系统临时文件", e.path, size, count, newest,
-                       0.92, f"%TEMP% 中 {C.TEMP_MIN_AGE_DAYS} 天前的临时文件，程序正在用的会自动跳过", strict=True)
+            _add_group(res, "temp", "系统临时文件", e.path, fp["size"], fp["count"], newest,
+                       0.92, f"%TEMP% 中 {C.TEMP_MIN_AGE_DAYS} 天前的临时文件，程序正在用的会自动跳过",
+                       strict=True, stamp=fp)
 
 
 def _match_group(res, path, nd, name_l, parent_n, stop):
@@ -130,21 +183,20 @@ def _match_group(res, path, nd, name_l, parent_n, stop):
                    0.9, "运行 Python 时会自动重新生成")
         return True
     if name_l == "node_modules":
-        size, count, newest = dir_stats(path, stop)
-        old = newest and time.time() - newest > 180 * 86400
+        fp = fingerprint(path, stop)
+        old = fp["newest"] and time.time() - fp["newest"] > 180 * 86400
         _add_group(res, "nm:" + nd, "node_modules · " + os.path.basename(os.path.dirname(path)),
-                   path, size, count, newest, 0.72 if old else 0.55,
-                   "前端依赖目录，可用 npm install 重新生成", strict=True)
+                   path, fp["size"], fp["count"], fp["newest"], 0.72 if old else 0.55,
+                   "前端依赖目录，可用 npm install 重新生成", strict=True, stamp=fp)
         return True
     if parent_n == norm(C.HF_HUB) and (name_l.startswith("models--") or name_l.startswith("datasets--")):
         kind = "模型" if name_l.startswith("models--") else "数据集"
         label = f"HuggingFace {kind} · " + path.split("--", 1)[1].replace("--", "/")
-        _add_group(res, "hf:" + nd, label, path, *dir_stats(path, stop), 0.5,
-                   f"下载过的{kind}缓存，删除后用到时会重新下载", strict=True)
+        _add_strict(res, "hf:" + nd, label, path, stop, 0.5, f"下载过的{kind}缓存，删除后用到时会重新下载")
         return True
     if parent_n == norm(C.HOME_CACHE) and name_l not in ("huggingface", "pip"):
-        _add_group(res, "hc:" + nd, "工具缓存 · .cache\\" + os.path.basename(path), path,
-                   *dir_stats(path, stop), 0.45, "各类工具的下载/模型缓存，用途请自行确认", strict=True)
+        _add_strict(res, "hc:" + nd, "工具缓存 · .cache\\" + os.path.basename(path), path, stop,
+                    0.45, "各类工具的下载/模型缓存，用途请自行确认")
         return True
     if name_l in C.CACHE_DIR_NAMES and any(under(nd, b) for b in C.APPDATA_NS):
         app, key = _app_label(path, nd)
@@ -178,15 +230,15 @@ def scan(roots, on_progress, stop):
         if "conda-meta" in names:
             pk = os.path.join(d, "pkgs")
             if os.path.isdir(pk):
-                _add_group(res, "conda:" + nd, "conda 安装包缓存 · " + d, pk, *dir_stats(pk, stop), 0.6,
-                           "建议在命令行运行 conda clean -a 清理，而不是直接删除", strict=True)
+                _add_strict(res, "conda:" + nd, "conda 安装包缓存 · " + d, pk, stop, 0.6,
+                            "建议在命令行运行 conda clean -a 清理，而不是直接删除")
             res.n_programs += 1
             continue
         if names & C.UNINSTALL_MARKERS or _looks_like_program(d, names):
             if under(nd, C.DOWNLOADS_N) and nd != C.DOWNLOADS_N:
                 # 下载文件夹里解压出来的软件：整个文件夹作为一项让用户决定
-                _add_group(res, "dlprog:" + nd, "下载文件夹中的软件 · " + os.path.basename(d), d,
-                           *dir_stats(d, stop), 0.6, "看起来是解压出来的软件，确认不再使用可以整个删除", strict=True)
+                _add_strict(res, "dlprog:" + nd, "下载文件夹中的软件 · " + os.path.basename(d), d, stop,
+                            0.6, "看起来是解压出来的软件，确认不再使用可以整个删除")
             res.n_programs += 1
             continue
         is_root = len(nd.rstrip("\\").split("\\")) == 1

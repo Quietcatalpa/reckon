@@ -192,7 +192,7 @@ class Planner:
         self.mode = mode
         self.target_root = target_root
         self.judge = judge if judge is not None and judge.status == "ready" else None
-        self.max_laya = max_laya
+        self.max_laya = max_laya or float("inf")  # 0 或不填 = 不限
         self.type_dest = type_dest or {}  # 个人规则：某类文件默认放到哪（优先于其他判断）
         self.index = build_index(target_root) if mode == "topic" else []
         self.tops = [f for f in self.index if f["depth"] == 1]
@@ -401,7 +401,14 @@ def execute(items, moves):
             _save_history(hpath, h)  # 先记下来再动手
             try:
                 shutil.move(src, final)
-            except Exception:
+            except Exception as e:
+                # 跨盘移动 = 先复制再删原来的；删到一半失败时两边都只剩一部分。
+                # 只要磁盘上有东西被动过，记录就必须留着，否则就没法撤销了。
+                if os.path.exists(final) or not os.path.exists(src):
+                    rec["partial"] = True
+                    _save_history(hpath, h)
+                    raise RuntimeError(f"移动没有完成（{e}）。已经移过去的部分记在整理记录里，"
+                                       "可以点「撤销」放回原处") from e
                 h["records"].remove(rec)
                 h["total"] -= 1
                 if it["name"] in h["sample"]:
@@ -443,6 +450,42 @@ def list_history(limit=10):
     return out
 
 
+def _same_file(a, b):
+    try:
+        sa, sb = os.stat(a), os.stat(b)
+    except OSError:
+        return False
+    return sa.st_size == sb.st_size and int(sa.st_mtime) == int(sb.st_mtime)
+
+
+def _merge_back(dst, src):
+    """把 dst 里的东西搬回 src：src 里没有的直接移回去；两边都有且大小、修改时间一样的（复制出来的副本）删掉 dst 那份；
+    两边都有但不一样的留着不动。返回留下没处理的文件数；全部处理完会把空了的 dst 删掉。"""
+    if os.path.isfile(dst):
+        if _same_file(dst, src):
+            os.remove(dst)
+            return 0
+        return 1
+    left = 0
+    for base, dirs, files in os.walk(dst, topdown=False):
+        rel = os.path.relpath(base, dst)
+        target_dir = src if rel == "." else os.path.join(src, rel)
+        os.makedirs(target_dir, exist_ok=True)
+        for fn in files:
+            a, b = os.path.join(base, fn), os.path.join(target_dir, fn)
+            if not os.path.exists(b):
+                shutil.move(a, b)
+            elif _same_file(a, b):
+                os.remove(a)
+            else:
+                left += 1
+        try:
+            os.rmdir(base)
+        except OSError:
+            pass
+    return left
+
+
 def undo(hid):
     """倒序放回原处。放不回去的留在记录里，下次可以再撤销；全部放回后才算撤销完成。"""
     if not re.fullmatch(r"\d{8}-\d{6}(-\d+)?", hid or ""):
@@ -463,6 +506,13 @@ def undo(hid):
                 paths.append(r["src"])
             elif src_there and not dst_there:
                 # 已经在原处了（程序在移动前被关掉，或之前已放回），不用处理
+                paths.append(r["src"])
+            elif src_there and dst_there and r.get("partial"):
+                # 上次移动到一半就失败了：把已经移过去的部分放回原处，两边都有的不覆盖
+                left = _merge_back(r["dst"], r["src"])
+                if left:
+                    raise RuntimeError(f"有 {left} 个文件原位置和整理后的位置都有、而且不一样，没有覆盖，请手动确认")
+                restored += 1
                 paths.append(r["src"])
             elif src_there and dst_there:
                 raise RuntimeError("原位置和整理后的位置都有这个名字，请手动确认要保留哪个")

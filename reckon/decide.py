@@ -7,6 +7,7 @@ import threading
 import time
 import warnings
 import zipfile
+import zlib
 from concurrent.futures import ThreadPoolExecutor
 
 from . import config as C
@@ -166,10 +167,25 @@ def _zip_name(info):
     return name.replace("\\", "/")
 
 
-def archive_status(path, max_entries=20000):
-    """压缩包旁边的同名文件夹：('full', n) 已核对全部文件都解压了；('folder', 0) 有同名文件夹但没核对上；(None, 0) 没有。
+def _crc_matches(fpath, crc):
+    v = 0
+    with open(fpath, "rb") as f:
+        while True:
+            b = f.read(1 << 20)
+            if not b:
+                break
+            v = zlib.crc32(b, v)
+    return v == crc
 
-    只有 zip 能核对（看文件列表和大小）；rar/7z 等读不了目录，一律只算线索。
+
+def archive_status(path, max_entries=20000, max_verify_bytes=512 << 20):
+    """压缩包旁边的同名文件夹：
+    ('full', n)   全部 n 个文件都解压了，而且逐个核对了内容（zip 里记的 CRC32）；
+    ('size', n)   文件名和大小都对得上，但总量太大没有逐个核对内容，只作线索；
+    ('folder', 0) 有同名文件夹但没核对上（缺文件、内容不同或读不了目录）；
+    (None, 0)     没有同名文件夹。
+
+    只有 zip 能核对；rar/7z 等读不了目录，一律只算线索。
     解压时常见两种结构：同名文件夹里直接是内容，或者多套了一层同名文件夹，两种都认。
     """
     stem = os.path.splitext(path)[0]
@@ -179,26 +195,40 @@ def archive_status(path, max_entries=20000):
         return "folder", 0
     try:
         with zipfile.ZipFile(path) as z:
-            entries = [(_zip_name(i).split("/"), i.file_size) for i in z.infolist() if not i.is_dir()]
+            entries = [(_zip_name(i).split("/"), i.file_size, i.CRC) for i in z.infolist() if not i.is_dir()]
     except (OSError, zipfile.BadZipFile, RuntimeError, ValueError):
         return "folder", 0
     if not entries or len(entries) > max_entries:
         return "folder", 0
 
-    def complete(strip_first):
-        for parts, size in entries:
+    def layout(strip_first):
+        """按这种结构，每个条目对应的解压文件；有缺失或大小不同返回 None。"""
+        out = []
+        for parts, size, crc in entries:
             if strip_first:
                 if len(parts) < 2:
-                    return False
+                    return None
                 parts = parts[1:]
+            fp = os.path.join(stem, *parts)
             try:
-                if os.path.getsize(os.path.join(stem, *parts)) != size:
-                    return False
+                if os.path.getsize(fp) != size:
+                    return None
             except OSError:
-                return False
-        return True
+                return None
+            out.append((fp, crc))
+        return out
 
-    return ("full", len(entries)) if complete(False) or complete(True) else ("folder", 0)
+    files = layout(False) or layout(True)
+    if not files:
+        return "folder", 0
+    if sum(e[1] for e in entries) > max_verify_bytes:
+        return "size", len(entries)
+    try:
+        if all(_crc_matches(fp, crc) for fp, crc in files):
+            return "full", len(entries)
+    except OSError:
+        pass
+    return "folder", 0
 
 
 def rule_prior(path, np_, ftype, age, name_l):
@@ -254,7 +284,10 @@ def rule_prior(path, np_, ftype, age, name_l):
         status, n = archive_status(path)
         if status == "full":
             p = max(p, 0.85)
-            reasons.append(f"已核对：压缩包里的 {n} 个文件都已解压在旁边的同名文件夹里")
+            reasons.append(f"已核对：压缩包里的 {n} 个文件都已解压在旁边的同名文件夹里，内容一致")
+        elif status == "size":
+            p += 0.1
+            reasons.append(f"旁边的同名文件夹里有同名同大小的 {n} 个文件（太大没有逐个核对内容，只作参考）")
         elif status == "folder":
             p += 0.05
             reasons.append("旁边有同名文件夹（没能核对是否完整解压，只作参考）")
@@ -463,7 +496,7 @@ def build_items(scan, dup_groups, judge, opts, on_progress, stop, cache=None):
             p = min(p, PERSONAL_CAP)
         item = add({"kind": "file", "name": name, "path": f["path"], "size": f["size"], "mtime": f["mtime"],
                     "age": age, "type": ftype, "topic": keyword_topic(f["path"]), "p": p, "rec": _rec(p, capped),
-                    "reasons": reasons, "capped": capped, "laya": None, "_rule": p, "_capped": capped, "_ext": ext, "_cloud": f["cloud"]})
+                    "reasons": reasons, "capped": capped, "laya": None, "rule": round(p, 3), "_rule": p, "_capped": capped, "_ext": ext, "_cloud": f["cloud"]})
         if ftype not in C.NO_MODEL_TYPES and not skip_model:
             pending.append(item)
     if use_laya:

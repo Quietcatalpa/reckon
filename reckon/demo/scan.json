@@ -71,7 +71,8 @@
     "C:\\Users\\demo\\AppData\\Local\\Temp\\7zO1A2B",
     "C:\\Users\\demo\\AppData\\Local\\Temp\\7zO1A2B"
    ],
-   "count": 18421
+   "count": 18421,
+   "strict": true
   },
   {
    "id": 1,
@@ -94,7 +95,8 @@
    "paths": [
     "C:\\Users\\demo\\AppData\\Local\\pip\\cache"
    ],
-   "count": 912
+   "count": 912,
+   "strict": false
   },
   {
    "id": 2,
@@ -125,7 +127,8 @@
     "C:\\Users\\demo\\AppData\\Local\\Google\\Chrome\\User Data\\Default\\Cache",
     "C:\\Users\\demo\\AppData\\Local\\Google\\Chrome\\User Data\\Default\\Cache"
    ],
-   "count": 20311
+   "count": 20311,
+   "strict": false
   },
   {
    "id": 3,
@@ -153,7 +156,8 @@
     "C:\\Users\\demo\\AppData\\Roaming\\Code\\logs",
     "C:\\Users\\demo\\AppData\\Roaming\\Code\\logs"
    ],
-   "count": 3120
+   "count": 3120,
+   "strict": false
   },
   {
    "id": 4,
@@ -176,7 +180,8 @@
    "paths": [
     "D:\\code\\my-blog\\node_modules"
    ],
-   "count": 41210
+   "count": 41210,
+   "strict": false
   },
   {
    "id": 5,
@@ -199,7 +204,8 @@
    "paths": [
     "C:\\Users\\demo\\.cache\\huggingface\\hub\\models--bert-base-chinese"
    ],
-   "count": 12
+   "count": 12,
+   "strict": false
   },
   {
    "id": 6,
@@ -218,7 +224,8 @@
     "安装包，已放了 214 天",
     "214 天未修改"
    ],
-   "laya": null
+   "laya": null,
+   "rule": 0.88
   },
   {
    "id": 7,
@@ -237,7 +244,8 @@
     "安装包，已放了 330 天",
     "330 天未修改"
    ],
-   "laya": null
+   "laya": null,
+   "rule": 0.88
   },
   {
    "id": 8,
@@ -262,7 +270,8 @@
     "read": true,
     "topic": null,
     "topic_p": 0
-   }
+   },
+   "rule": 0.977
   },
   {
    "id": 9,
@@ -281,7 +290,8 @@
     "安装包，已放了 446 天",
     "446 天未修改"
    ],
-   "laya": null
+   "laya": null,
+   "rule": 0.88
   },
   {
    "id": 10,
@@ -293,7 +303,7 @@
    "age": 300,
    "type": "日志缓存",
    "topic": null,
-   "p": 0.86,
+   "p": 0.854,
    "rec": "delete",
    "reasons": [
     "临时/日志/残留下载类文件",
@@ -305,7 +315,8 @@
     "read": true,
     "topic": null,
     "topic_p": 0
-   }
+   },
+   "rule": 0.98
   },
   {
    "id": 11,
@@ -324,7 +335,8 @@
     "安装包，已放了 95 天",
     "95 天未修改"
    ],
-   "laya": null
+   "laya": null,
+   "rule": 0.88
   },
   {
    "id": 12,
@@ -348,7 +360,8 @@
     "read": true,
     "topic": null,
     "topic_p": 0
-   }
+   },
+   "rule": 0.662
   },
   {
    "id": 13,
@@ -367,7 +380,8 @@
     "超过一年未修改的媒体文件",
     "402 天未修改"
    ],
-   "laya": null
+   "laya": null,
+   "rule": 0.45
   },
   {
    "id": 14,
@@ -391,7 +405,8 @@
     "read": false,
     "topic": null,
     "topic_p": 0
-   }
+   },
+   "rule": 0.581
   },
   {
    "id": 15,
@@ -415,7 +430,8 @@
     "read": true,
     "topic": null,
     "topic_p": 0
-   }
+   },
+   "rule": 0.121
   },
   {
    "id": 16,
@@ -438,7 +454,8 @@
     "read": true,
     "topic": null,
     "topic_p": 0
-   }
+   },
+   "rule": 0.476
   },
   {
    "id": 17,
@@ -462,7 +479,8 @@
     "read": true,
     "topic": null,
     "topic_p": 0
-   }
+   },
+   "rule": 0.711
   },
   {
    "id": 18,

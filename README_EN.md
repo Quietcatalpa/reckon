@@ -26,8 +26,9 @@ fully offline · deletes only to the Recycle Bin · every organize run can be un
   sorted into *suggest delete / please review / suggest keep / duplicates / cache folders*. Selected items go to the Recycle Bin.
 - **🗂️ Organize**: hand it a messy folder such as Downloads and it proposes a destination inside **the folders you already use**
   (e.g. `Sanya travel guide.pdf` → `04_Travel\Sanya`), or sorts by file type. Preview, adjust, confirm — and undo with one click.
-- **📖 Reads content**: Word, PowerPoint, Excel, PDF, text and code files are read (first ~600 characters) before judging,
-  so it can tell lecture notes from a re-downloadable installer archive.
+- **📖 Reads content**: Word, PowerPoint, Excel, text and code files are read (first ~600 characters) before judging,
+  so it can tell lecture notes from a re-downloadable installer archive. (PDF text needs the source version with PyMuPDF;
+  the exe judges PDFs by name, location and age only.)
 - **🔒 Local only**: the model runs on your machine; no file names or contents leave it.
 
 Unlike classic cleaners that only know caches and temp folders, Reckon combines location, type, age and content, and lets a decision
@@ -76,6 +77,7 @@ Measured on an ordinary laptop CPU with ~300k files on two drives:
 | **total** | **~12 min** | **~1.5 min** |
 
 The model judges the most uncertain files first, so stopping early still leaves the important ones done.
+No GPU needed: the exe runs the model on the CPU only; from source with a CUDA build of torch it uses an NVIDIA GPU.
 
 ## Safety
 
@@ -95,8 +97,9 @@ The model judges the most uncertain files first, so stopping early still leaves 
 
 ## Personal rules
 
-*⚙ 设置* (Settings) lets you set **folders to always keep**, **items never to suggest again** (🔕 on each row), **default destinations
-per file type** when organizing, and the **thresholds / rule weight**. Personal files, backups and suspected duplicates stay at
+*设置* (Settings) lets you set **folders to always keep**, **items never to suggest again** (the bell icon on each row), **default destinations
+per file type** when organizing, and the **thresholds / rule weight** (sliders with a live preview of how the current results would be sorted).
+*说明* (Help) and the *?* marks next to every option explain each score, column and tag. Personal files, backups and suspected duplicates stay at
 *please review* whatever the thresholds are.
 
 ## How accurate is Laya?

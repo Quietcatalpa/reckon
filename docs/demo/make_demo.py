@@ -21,6 +21,12 @@ items = []
 
 
 def add(kind, name, path, size, age, ftype, p, reasons, topic=None, laya=None, **kw):
+    if kind == "file":
+        # 和真实扫描一样记下规则分：有模型判断时反推出规则那一半（清理建议分 = 规则 × 45% + Laya × 55%）
+        rule = p if not laya else min(0.98, max(0.05, (p - 0.55 * laya["delete"]) / 0.45))
+        if laya:
+            p = round(0.45 * rule + 0.55 * laya["delete"], 3)
+        kw.setdefault("rule", round(rule, 3))
     it = {"id": len(items), "kind": kind, "name": name, "path": path, "size": int(size),
           "mtime": NOW - age * 86400, "age": age, "type": ftype, "topic": topic, "p": p, "rec": rec(p),
           "reasons": reasons, "laya": laya}
@@ -29,9 +35,9 @@ def add(kind, name, path, size, age, ftype, p, reasons, topic=None, laya=None, *
     return it["id"]
 
 
-def group(label, path, size, count, p, hint, age=0, n_paths=1):
+def group(label, path, size, count, p, hint, age=0, n_paths=1, strict=False):
     add("group", label, path, size, age, "缓存目录", p, [hint, f"{count:,} 个文件", "今天修改过" if age < 1 else f"{age} 天未修改"],
-        paths=[path] * n_paths, count=count)
+        paths=[path] * n_paths, count=count, strict=strict)
 
 
 def laya(d, read=True):
@@ -39,7 +45,7 @@ def laya(d, read=True):
 
 
 group("系统临时文件", r"C:\Users\demo\AppData\Local\Temp\7zO1A2B", 2.3 * GB, 18421, 0.92,
-      "%TEMP% 中 3 天前的临时文件，程序正在用的会自动跳过", age=41, n_paths=37)
+      "%TEMP% 中 3 天前的临时文件，程序正在用的会自动跳过", age=41, n_paths=37, strict=True)
 group("pip 下载缓存", r"C:\Users\demo\AppData\Local\pip\cache", 2.0 * GB, 912, 0.92, "pip 安装包缓存，需要时会重新下载")
 group("应用缓存 · Google\\Chrome", r"C:\Users\demo\AppData\Local\Google\Chrome\User Data\Default\Cache", 1.8 * GB, 20311,
       0.85, "应用缓存和日志，删除后会自动重新生成；程序运行中的文件可能删不掉", n_paths=9)

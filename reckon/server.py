@@ -76,7 +76,7 @@ class App:
             return {"status": "demo", "error": None}
         if self.judge is None:
             return {"status": "disabled", "error": None}
-        return {"status": self.judge.status, "error": self.judge.error}
+        return {"status": self.judge.status, "error": self.judge.error, "backend": self.judge.backend}
 
     def _set(self, **kw):
         with self.lock:
@@ -259,6 +259,8 @@ class App:
                 for idx, p in enumerate(paths):
                     if C.is_protected(norm(p)):
                         raise RuntimeError("位于受保护目录")
+                    if C.contains_protected(norm(p)):
+                        raise RuntimeError("这个目录里面有受保护的目录，为安全起见不删除")
                     if not os.path.exists(p):
                         continue
                     if os.path.isdir(p):
@@ -268,10 +270,12 @@ class App:
                         size, newest = st.st_size, st.st_mtime
                         if it["kind"] != "group" and (st.st_size != it["size"] or int(st.st_mtime) != int(it["mtime"])):
                             raise RuntimeError("文件在扫描后被修改过，请重新扫描")
-                    # 临时文件、解压的软件等：扫描后里面有新改动就不动它，免得把新放进去的东西一起删掉
-                    if it.get("strict") and idx < len(stamps) and newest > stamps[idx] + 1:
-                        problems.append(f"扫描后「{os.path.basename(p)}」里有新的改动，为安全起见跳过了，重新扫描后再处理")
-                        continue
+                    # 临时文件、解压的软件等：扫描后里面有任何变化就不动它，免得把新放进去的东西一起删掉
+                    if it.get("strict") and idx < len(stamps):
+                        why = self._changed_since_scan(p, stamps[idx], newest)
+                        if why:
+                            problems.append(why)
+                            continue
                     if it["kind"] == "dupe" and not dupes.same_content(p, it["dup_of"]):
                         raise RuntimeError("完整比对后发现和保留的那份内容并不完全相同，没有删除")
                     # 确认一定能进回收站（本机硬盘、回收站开着、没超过容量上限），否则 Windows 会直接永久删除
@@ -297,6 +301,20 @@ class App:
         return {"done": done, "failed": failed}
 
     @staticmethod
+    def _changed_since_scan(p, stamp, newest):
+        name = os.path.basename(p)
+        if isinstance(stamp, dict):  # 扫描时记下的成员清单指纹
+            now = scanner.fingerprint(p)
+            if now["errors"] or stamp.get("errors"):
+                return f"「{name}」里有文件读不了，没法确认扫描后有没有变化，为安全起见跳过了"
+            if now["digest"] != stamp["digest"]:
+                return f"扫描后「{name}」里的文件有变化（增加、减少或修改），为安全起见跳过了，重新扫描后再处理"
+            return None
+        if newest > stamp + 1:  # 旧版本的扫描结果只记了最新修改时间
+            return f"扫描后「{name}」里有新的改动，为安全起见跳过了，重新扫描后再处理"
+        return None
+
+    @staticmethod
     def _check_keep(it):
         """删重复副本前确认保留的那份还在、扫描后没被改过。内容是否真的相同在删之前再完整比对。"""
         keep = it["dup_of"]
@@ -314,7 +332,9 @@ class App:
         for it in self.results.get("items", []):
             v = dict(it)
             v["hidden"] = rules.hidden_reason(it, self.rules, ignored)
-            v["rec"] = decide._rec(it["p"], it.get("capped", False))
+            if it.get("laya") and it.get("rule") is not None:  # 规则占比改了，分数跟着变
+                v["p"] = round(decide.fuse(it["rule"], it["laya"]["delete"], it.get("capped", False)), 3)
+            v["rec"] = decide._rec(v["p"], it.get("capped", False))
             items.append(v)
         return dict(self.results, items=items)
 
@@ -524,7 +544,34 @@ def find_running(first_port):
     return None
 
 
-def main():
+class Server(ThreadingHTTPServer):
+    # Windows 上 SO_REUSEADDR 会让两个程序绑定同一个端口，请求随机落到其中一个；关掉它，端口被占用时才会报错换下一个
+    allow_reuse_address = False
+    daemon_threads = True
+
+
+_instance_lock = None
+
+
+def acquire_instance_lock(path=None):
+    """同一个用户只运行一个盘算（两个实例同时删除、整理会互相打架）。拿到锁返回 True。
+    锁由系统跟着进程走：程序退出或崩溃后自动释放。"""
+    global _instance_lock
+    import msvcrt
+    path = path or os.path.join(C.DATA_DIR, "instance.lock")
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    f = open(path, "a+")
+    try:
+        f.seek(0)
+        msvcrt.locking(f.fileno(), msvcrt.LK_NBLCK, 1)
+    except OSError:
+        f.close()
+        return False
+    _instance_lock = f
+    return True
+
+
+def parse_args(argv=None):
     ap = argparse.ArgumentParser()
     ap.add_argument("--port", type=int, default=8765)
     ap.add_argument("--no-laya", action="store_true", help="不加载模型，只用规则")
@@ -534,7 +581,20 @@ def main():
     ap.add_argument("--remove-sendto", action="store_true", help="从“发送到”菜单里去掉")
     ap.add_argument("--organize", nargs="*", metavar="PATH",
                     help="打开整理页面并填入这些文件/文件夹（拖到 整理.bat 上或右键发送到时使用）")
-    args = ap.parse_args()
+    ap.add_argument("paths", nargs="*", metavar="PATH", help="直接跟文件/文件夹路径（拖到 Reckon.exe 上），等同于 --organize")
+    args = ap.parse_args(argv)
+    if args.paths:
+        args.organize = (args.organize or []) + args.paths
+    return args
+
+
+def open_browser(url):
+    import webbrowser
+    webbrowser.open(url)
+
+
+def main(argv=None):
+    args = parse_args(argv)
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8")
 
@@ -552,16 +612,28 @@ def main():
         fragment = "#organize=" + quote(json.dumps([os.path.abspath(p) for p in args.organize], ensure_ascii=False))
         running = find_running(args.port)
         if running:
-            import webbrowser
-            webbrowser.open(running + fragment)
+            open_browser(running + fragment)
             print("已在运行中的窗口打开整理页面：" + running)
             return
+    # 演示模式不碰真实文件，可以和正常模式同时开
+    if not args.demo and not acquire_instance_lock():
+        running = None
+        for _ in range(30):  # 另一个实例可能还在启动，等它开始监听
+            running = find_running(args.port)
+            if running:
+                break
+            time.sleep(0.5)
+        if running:
+            open_browser(running + fragment)
+            print("盘算已经在运行了，已打开它的页面：" + running)
+            return
+        sys.exit("盘算已经在运行了（没有找到它的页面，可能还在启动）。如果确定没有在运行，请重启电脑后再试。")
 
     app = App(use_laya=not args.no_laya, demo=args.demo)
     port = args.port
     for port in range(args.port, args.port + 20):
         try:
-            srv = ThreadingHTTPServer(("127.0.0.1", port), make_handler(app, port))
+            srv = Server(("127.0.0.1", port), make_handler(app, port))
             break
         except OSError:
             continue
@@ -571,8 +643,7 @@ def main():
     print(f"盘算 Reckon 已启动：{url}")
     print("Laya 模型在后台加载（约 1 分钟），可以先设置扫描选项。关闭此窗口即退出。")
     if not args.no_browser:
-        import webbrowser
-        webbrowser.open(url + fragment)
+        open_browser(url + fragment)
     try:
         srv.serve_forever()
     except KeyboardInterrupt:

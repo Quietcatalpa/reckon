@@ -102,6 +102,11 @@ CHAT_DIR_NAMES = {"xwechat_files", "wechat files", "tencent files", "wxwork", "w
                   "dingtalk", "feishu"}
 
 
+def contains_protected(np_):
+    """np_ 这个目录里面是否包含受保护的目录（删掉它会连带删掉受保护的东西）。"""
+    return any(under(p, np_) and p != np_ for p in PROTECTED_NS)
+
+
 def is_protected(np_):
     if under_any(np_, PROTECTED_NS):
         return True

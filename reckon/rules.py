@@ -96,9 +96,17 @@ def item_key(it):
 
 
 def kept_dir(path, r):
-    """path 在某个“永远保留”的文件夹里就返回那个文件夹。"""
+    """path 在某个“永远保留”的文件夹里，或者 path 这个目录里面包含某个“永远保留”的文件夹，
+    返回 (那个文件夹, 是否是“包含”关系)；都不是返回 (None, False)。
+    两个方向都要查：删掉 Temp\job 会连带删掉里面被设为保留的 Temp\job\saved。"""
     np_ = norm(path)
-    return next((d for d in r["keep_dirs"] if under(np_, norm(d))), None)
+    for d in r["keep_dirs"]:
+        nd = norm(d)
+        if under(np_, nd):
+            return d, False
+        if under(nd, np_):
+            return d, True
+    return None, False
 
 
 def hidden_reason(it, r, ignored=None):
@@ -107,7 +115,7 @@ def hidden_reason(it, r, ignored=None):
     if item_key(it) in ignored:
         return "你设置了以后不再提示这一项"
     for p in it.get("paths") or [it["path"]]:
-        d = kept_dir(p, r)
+        d, contains = kept_dir(p, r)
         if d:
-            return f"在你设置的“永远保留”文件夹「{d}」里"
+            return f"里面有你设置的“永远保留”文件夹「{d}」" if contains else f"在你设置的“永远保留”文件夹「{d}」里"
     return None

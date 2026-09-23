@@ -63,6 +63,7 @@ def main():
         shutil.copy(os.path.join(MODEL_SRC, fn), model_dir)
     for fn in ("LICENSE", "THIRD_PARTY_NOTICES.md"):
         shutil.copy(os.path.join(ROOT, fn), APP)
+    shutil.copytree(os.path.join(ROOT, "licenses"), os.path.join(APP, "licenses"))  # 说明里引用的许可证全文
     with open(os.path.join(APP, "使用说明.txt"), "w", encoding="utf-8-sig") as f:
         f.write(f"""盘算 Reckon {__version__}
 
@@ -75,6 +76,7 @@ def main():
 
 扫描结果、整理记录、个人规则存在 %LOCALAPPDATA%\\Reckon 里；删除这个文件夹就清空了所有记录。
 清理只会移到回收站，整理可以一键撤销。model 文件夹是 Laya 决策模型（Apache-2.0），不要删除，否则只能按规则判断。
+这个版本只用 CPU 运行模型，不读取 PDF 的文字内容（PDF 只按文件名、位置和时间判断）；需要这两项请从源码运行。
 
 说明和源码：https://github.com/Quietcatalpa/reckon
 """)

@@ -34,18 +34,17 @@ BROWSERS = [
     r"C:\Program Files\Google\Chrome\Application\chrome.exe",
 ]
 
-# 页面里加一个假鼠标和点击波纹；confirm 自动确认
+# 页面里加一个假鼠标和点击波纹
 CURSOR_JS = r"""
 (() => {
   if (window.__cur) return true;
-  window.confirm = () => true;
   const c = document.createElement('div');
   c.innerHTML = '<svg width="28" height="28" viewBox="0 0 24 24"><path d="M4 2l16 10-7 1.6L9.6 21z" fill="#111" stroke="#fff" stroke-width="1.6" stroke-linejoin="round"/></svg>';
   Object.assign(c.style, {position: 'fixed', left: '900px', top: '420px', zIndex: 99999, pointerEvents: 'none',
     transition: 'left .7s ease-in-out, top .7s ease-in-out', filter: 'drop-shadow(0 1px 2px rgba(0,0,0,.35))'});
   const ring = document.createElement('div');
   Object.assign(ring.style, {position: 'fixed', width: '36px', height: '36px', marginLeft: '-18px', marginTop: '-18px',
-    borderRadius: '50%', border: '3px solid #2f6f5e', opacity: 0, zIndex: 99998, pointerEvents: 'none'});
+    borderRadius: '50%', border: '3px solid #c96442', opacity: 0, zIndex: 99998, pointerEvents: 'none'});
   document.body.append(c, ring);
   const el = (s) => typeof s === 'string' ? document.querySelector(s) : s;
   const center = (e) => { const r = e.getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; };
@@ -74,7 +73,8 @@ CURSOR_JS = r"""
 
 # (要执行的 JS, 之后录多少秒)
 TIMELINE = [
-    ("true", 1.6),
+    ("true", 1.2),
+    ("__cur.scrollTo('#explain', 16)", 1.4),
     ("__cur.move('.tile[data-tab=dupes]')", 0.8),
     ("__cur.click('.tile[data-tab=dupes]')", 1.4),
     ("__cur.move(document.querySelectorAll('#list .dg input')[0])", 0.8),
@@ -86,7 +86,9 @@ TIMELINE = [
     ("__cur.move(document.querySelectorAll('#list .it input')[0])", 0.8),
     ("__cur.click(document.querySelectorAll('#list .it input')[0])", 0.5),
     ("__cur.move('#trash')", 0.9),
-    ("__cur.click('#trash')", 2.4),
+    ("__cur.click('#trash')", 1.4),
+    ("__cur.move('#askOk')", 0.7),
+    ("__cur.click('#askOk')", 2.4),
     ("__cur.move('#modes [data-mode=org]')", 0.9),
     ("__cur.click('#modes [data-mode=org]')", 1.6),
     ("__cur.scrollTo('#oout', 70)", 1.3),
@@ -98,10 +100,14 @@ TIMELINE = [
     ("__cur.move('#oselall')", 0.8),
     ("__cur.click('#oselall')", 1.0),
     ("__cur.move('#orun')", 0.8),
-    ("__cur.click('#orun')", 2.2),
+    ("__cur.click('#orun')", 1.3),
+    ("__cur.move('#askOk')", 0.7),
+    ("__cur.click('#askOk')", 2.2),
     ("__cur.scrollTo('#hist', 420)", 1.2),
     ("__cur.move('#hist [data-undo]')", 0.8),
-    ("__cur.click('#hist [data-undo]')", 2.6),
+    ("__cur.click('#hist [data-undo]')", 1.3),
+    ("__cur.move('#askOk')", 0.7),
+    ("__cur.click('#askOk')", 2.6),
 ]
 
 
@@ -155,8 +161,8 @@ def open_page(cdp, path):
 
 
 def screenshots(cdp):
-    """清理页、整理页各拍浅色和深色一张（1280×1000 视口，1.5 倍清晰度）。"""
-    cdp.call("Emulation.setDeviceMetricsOverride", width=VIEW_W, height=1000, deviceScaleFactor=1.5, mobile=False)
+    """清理页、整理页各拍浅色和深色一张（1280×1240 视口，1.5 倍清晰度）。"""
+    cdp.call("Emulation.setDeviceMetricsOverride", width=VIEW_W, height=1240, deviceScaleFactor=1.5, mobile=False)
     for scheme in ("light", "dark"):
         cdp.call("Emulation.setEmulatedMedia", features=[{"name": "prefers-color-scheme", "value": scheme}])
         for name, path in (("clean", "/"), ("organize", "/#org")):

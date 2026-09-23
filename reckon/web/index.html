@@ -5,164 +5,353 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>盘算 Reckon</title>
 <style>
+/* 暖色象牙白 + 陶土色强调；页面离线使用，只用系统字体 */
 :root {
-  --bg: #f6f6f3; --panel: #ffffff; --ink: #1d1d1b; --muted: #6b6b66; --line: #e3e2dc;
-  --accent: #2f6f5e; --accent-ink: #ffffff; --soft: #eef3f1;
-  --del: #b4452f; --del-soft: #f8e9e5; --rev: #9a6a12; --rev-soft: #f7efdc; --keep: #3b6d3a; --keep-soft: #e7f0e5;
-  --bar: #2f6f5e;
+  --bg: #faf9f5; --panel: #ffffff; --surface: #f0eee6; --sunk: #f5f4ee;
+  --ink: #1f1e1d; --ink2: #3d3c38; --muted: #6b6a64; --faint: #9a988f; --line: #e8e6dc; --line2: #dedbd0;
+  --accent: #c96442; --accent-hover: #b5573a; --accent-ink: #ffffff; --accent-soft: #f6e8e1;
+  --del: #b5412f; --del-soft: #f7e5df; --rev: #a0660f; --rev-soft: #f6ecd7; --keep: #4d7a3c; --keep-soft: #e6efdf;
+  --dup: #7a5aa6; --dup-soft: #eee8f5; --grp: #4f6f8f; --grp-soft: #e5ecf2;
+  --shadow: 0 1px 2px rgba(31, 30, 29, .04), 0 2px 8px rgba(31, 30, 29, .04);
+  --shadow-lg: 0 8px 32px rgba(31, 30, 29, .14), 0 2px 6px rgba(31, 30, 29, .06);
+  --serif: Georgia, "Noto Serif SC", "Source Han Serif SC", "Songti SC", "Microsoft YaHei UI", serif;
+  /* 数字用等高数字的衬线体（Georgia 的数字是高低错落的旧式数字，“19.6” 看着像小写字母） */
+  --numf: Cambria, "Times New Roman", "Microsoft YaHei UI", serif;
+  --sans: "Segoe UI", "Microsoft YaHei UI", "PingFang SC", system-ui, sans-serif;
+  color-scheme: light;
 }
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #161715; --panel: #1f201e; --ink: #ecebe6; --muted: #9a9a93; --line: #33342f;
-    --accent: #6fb8a2; --accent-ink: #0f1a17; --soft: #1f2d29;
-    --del: #e58a74; --del-soft: #3a231d; --rev: #e0b45c; --rev-soft: #362c17; --keep: #93c68e; --keep-soft: #1f2e1e;
-    --bar: #6fb8a2;
+    --bg: #262624; --panel: #30302e; --surface: #3a3936; --sunk: #2b2b29;
+    --ink: #f5f4ee; --ink2: #dcdad2; --muted: #a6a39a; --faint: #7d7b74; --line: #42413d; --line2: #4d4c47;
+    --accent: #d97757; --accent-hover: #e48a6c; --accent-ink: #1f1e1d; --accent-soft: #45322a;
+    --del: #e8836c; --del-soft: #4a2c25; --rev: #e3b35e; --rev-soft: #463a22; --keep: #9cc585; --keep-soft: #2f3d28;
+    --dup: #b89ae0; --dup-soft: #3b3348; --grp: #92b2d2; --grp-soft: #2f3a45;
+    --shadow: 0 1px 2px rgba(0, 0, 0, .2); --shadow-lg: 0 10px 40px rgba(0, 0, 0, .45);
+    color-scheme: dark;
   }
 }
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
-body { margin: 0; background: var(--bg); color: var(--ink);
-  font: 14px/1.5 "Microsoft YaHei UI", "PingFang SC", system-ui, sans-serif; padding-bottom: 80px; }
-.wrap { max-width: 1180px; margin: 0 auto; padding: 20px 16px; }
-header { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
-h1 { font-size: 22px; margin: 0; letter-spacing: .5px; }
-h1 .en { font-size: 15px; font-weight: 500; color: var(--muted); letter-spacing: 0; margin-left: 4px; }
+html { scroll-behavior: smooth; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.6 var(--sans); padding-bottom: 88px;
+  -webkit-font-smoothing: antialiased; }
+.wrap { max-width: 1160px; margin: 0 auto; padding: 22px 20px; }
+a { color: var(--accent); }
+.serif { font-family: var(--serif); }
 .sub { color: var(--muted); font-size: 13px; }
-.pill { margin-left: auto; padding: 4px 10px; border-radius: 99px; font-size: 12px; background: var(--soft); color: var(--accent); }
-.pill.warn { background: var(--rev-soft); color: var(--rev); }
-.card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 16px; margin-bottom: 14px; }
+.num { font-family: var(--numf); font-variant-numeric: lining-nums tabular-nums; }
+
+/* ---------- 顶栏 ---------- */
+header { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-bottom: 22px; }
+.brand { display: flex; align-items: center; gap: 12px; margin-right: auto; }
+.logo { width: 36px; height: 36px; border-radius: 10px; background: var(--accent); display: grid; place-items: center; flex: none; }
+.logo svg { width: 22px; height: 22px; }
+h1 { font-family: var(--serif); font-size: 24px; font-weight: 600; margin: 0; line-height: 1.1; letter-spacing: .5px; }
+h1 .en { font-size: 16px; font-weight: 400; color: var(--muted); letter-spacing: 0; margin-left: 6px; }
+.tagline { color: var(--muted); font-size: 12.5px; margin-top: 3px; }
+.modes { display: flex; background: var(--surface); border-radius: 10px; padding: 3px; }
+.modes button { border: 0; background: none; padding: 6px 18px; border-radius: 8px; color: var(--muted); box-shadow: none; }
+.modes button:hover { color: var(--ink); background: none; }
+.modes button.on { background: var(--panel); color: var(--ink); box-shadow: var(--shadow); font-weight: 600; }
+.status { display: inline-flex; align-items: center; gap: 7px; padding: 5px 11px; border-radius: 99px; font-size: 12.5px;
+  background: var(--panel); border: 1px solid var(--line); color: var(--ink2); cursor: help; }
+.status i { width: 7px; height: 7px; border-radius: 50%; background: var(--keep); }
+.status.loading i { background: var(--rev); animation: pulse 1.2s infinite; }
+.status.warn i { background: var(--del); }
+@keyframes pulse { 50% { opacity: .3; } }
+
+/* ---------- 通用控件 ---------- */
+button { font: inherit; border: 1px solid var(--line2); background: var(--panel); color: var(--ink); padding: 7px 15px;
+  border-radius: 9px; cursor: pointer; transition: background .15s, border-color .15s, color .15s; }
+button:hover { background: var(--sunk); }
+button.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 600; }
+button.primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
+button.danger { background: var(--del); color: #fff; border-color: var(--del); font-weight: 600; }
+button.danger:hover { filter: brightness(1.07); background: var(--del); }
+button.ghost { border-color: transparent; background: none; color: var(--muted); }
+button.ghost:hover { background: var(--surface); color: var(--ink); }
+button:disabled { opacity: .45; cursor: default; filter: none; }
+button:focus-visible, input:focus-visible, select:focus-visible, .choice:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
+input[type=number], input[type=text], input[type=search], select {
+  font: inherit; padding: 7px 10px; border: 1px solid var(--line2); border-radius: 9px; background: var(--panel); color: var(--ink); }
+input[type=number] { width: 84px; }
+input[type=text] { flex: 1; min-width: 220px; }
+input::placeholder { color: var(--faint); }
+input[type=checkbox], input[type=radio] { accent-color: var(--accent); width: 16px; height: 16px; margin: 0; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 20px 22px; margin-bottom: 16px; box-shadow: var(--shadow); }
 .row { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
-.drive { border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; min-width: 200px; cursor: pointer; display: flex; gap: 10px; align-items: center; }
-.drive input { accent-color: var(--accent); }
-.meter { height: 6px; background: var(--line); border-radius: 3px; overflow: hidden; margin-top: 4px; width: 150px; }
-.meter i { display: block; height: 100%; background: var(--bar); }
-label.opt { display: flex; gap: 6px; align-items: center; color: var(--muted); }
-input[type=number] { width: 72px; padding: 4px 6px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--ink); }
-input[type=search], select { padding: 6px 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); color: var(--ink); }
-button { font: inherit; border: 1px solid var(--line); background: var(--panel); color: var(--ink); padding: 7px 14px; border-radius: 7px; cursor: pointer; }
-button.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
-button.danger { background: var(--del); color: #fff; border-color: var(--del); }
-button:disabled { opacity: .45; cursor: default; }
-.progress { height: 6px; background: var(--line); border-radius: 3px; overflow: hidden; margin: 12px 0 6px; }
-.progress i { display: block; height: 100%; background: var(--bar); width: 0; transition: width .3s; }
+.step { display: flex; align-items: baseline; gap: 10px; margin-bottom: 4px; }
+.step b { font-family: var(--serif); font-size: 17px; font-weight: 600; }
+.step .n { font-family: var(--serif); color: var(--accent); font-size: 15px; }
+.desc { color: var(--muted); font-size: 13px; margin: 0 0 14px; }
+.opt { display: inline-flex; gap: 7px; align-items: center; color: var(--ink2); }
+.hint { font-size: 12.5px; color: var(--muted); margin-top: 10px; }
+.spacer { flex: 1; }
+
+/* 问号说明：鼠标放上去或点一下显示 */
+.q { display: inline-grid; place-items: center; width: 17px; height: 17px; border-radius: 50%; border: 1px solid var(--line2);
+  background: var(--panel); color: var(--muted); font: 600 11px/1 var(--sans); padding: 0; cursor: help; flex: none; vertical-align: 1px; }
+.q:hover, .q.open { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+#tipbox { position: fixed; z-index: 90; max-width: min(340px, calc(100vw - 24px)); background: var(--ink); color: var(--bg);
+  padding: 10px 13px; border-radius: 10px; font-size: 12.5px; line-height: 1.65; white-space: pre-line; box-shadow: var(--shadow-lg);
+  pointer-events: none; opacity: 0; transition: opacity .12s; }
+#tipbox.show { opacity: 1; }
+
+/* ---------- 磁盘 ---------- */
+.drives { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; }
+.drive { border: 1px solid var(--line2); border-radius: 12px; padding: 11px 14px; min-width: 220px; cursor: pointer;
+  display: flex; gap: 12px; align-items: center; background: var(--panel); transition: border-color .15s, background .15s; }
+.drive:hover { border-color: var(--faint); }
+.drive:has(input:checked) { border-color: var(--accent); background: var(--accent-soft); }
+.drive b { font-family: var(--serif); font-size: 16px; }
+.drive.off { opacity: .75; }
+.meter { height: 5px; background: var(--surface); border-radius: 3px; overflow: hidden; margin-top: 6px; width: 160px; }
+.meter i { display: block; height: 100%; background: var(--accent); border-radius: 3px; }
+.opts { display: flex; gap: 10px 22px; flex-wrap: wrap; align-items: center; padding-top: 14px; border-top: 1px solid var(--line); }
+.progress { height: 5px; background: var(--surface); border-radius: 3px; overflow: hidden; margin: 16px 0 8px; }
+.progress i { display: block; height: 100%; background: var(--accent); width: 0; transition: width .3s; border-radius: 3px; }
 .progress.indet i { width: 30%; animation: slide 1.2s infinite ease-in-out; }
 @keyframes slide { from { margin-left: -30%; } to { margin-left: 100%; } }
-.msg { color: var(--muted); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.msg { color: var(--muted); font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ---------- 第一次使用 ---------- */
+.intro { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+.intro .s { background: var(--sunk); border-radius: 12px; padding: 16px; }
+.intro .s .n { font-family: var(--numf); color: var(--accent); font-size: 22px; line-height: 1; }
+.intro .s b { display: block; margin: 8px 0 4px; font-size: 14.5px; }
+.intro .s p { margin: 0; color: var(--muted); font-size: 13px; }
+.safe { display: flex; gap: 8px 20px; flex-wrap: wrap; margin-top: 14px; font-size: 12.5px; color: var(--ink2); }
+.safe span::before { content: "✓ "; color: var(--keep); font-weight: 700; }
+
+/* ---------- 结果 ---------- */
+.explain { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; background: var(--sunk); border: 1px solid var(--line);
+  border-radius: 12px; padding: 12px 16px; margin-bottom: 14px; font-size: 13px; color: var(--ink2); }
+.explain .grow { flex: 1; min-width: 260px; }
+.zones { position: relative; width: 230px; flex: none; }
+.zones .bar { display: flex; height: 8px; border-radius: 4px; overflow: hidden; }
+.zones .bar i:nth-child(1) { background: var(--keep); } .zones .bar i:nth-child(2) { background: var(--rev); } .zones .bar i:nth-child(3) { background: var(--del); }
+.zones .ticks { position: relative; height: 16px; font-size: 11px; color: var(--muted); font-family: var(--numf); }
+.zones .ticks span { position: absolute; top: 2px; transform: translateX(-50%); }
+.zones .lbls { display: flex; font-size: 11px; color: var(--muted); }
+.zones .lbls span { text-align: center; overflow: hidden; white-space: nowrap; }
 .tiles { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 10px; margin-bottom: 14px; }
-@media (max-width: 900px) { .tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
-.tile { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; cursor: pointer; }
-.tile.on { outline: 2px solid var(--accent); outline-offset: -2px; }
-.tile b { display: block; font-size: 22px; font-variant-numeric: tabular-nums; }
-.tile span { color: var(--muted); font-size: 12px; }
-.toolbar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 8px; }
-.toolbar input[type=search] { flex: 1; min-width: 160px; }
-.list { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
-.it { display: grid; grid-template-columns: 28px 1fr 96px 120px 34px; gap: 10px; padding: 10px 14px; border-top: 1px solid var(--line); align-items: start; }
-.it:first-child { border-top: 0; }
-.it.gone { opacity: .45; }
+.tile { --c: var(--ink2); --cs: var(--surface); position: relative; background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
+  padding: 12px 14px 11px; cursor: pointer; box-shadow: var(--shadow); transition: border-color .15s, background .15s; }
+.tile:hover { border-color: var(--line2); }
+.tile.on { border-color: var(--c); background: var(--cs); box-shadow: 0 0 0 1px var(--c) inset; }
+.tile .h { display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--ink2); }
+.tile .h i { width: 8px; height: 8px; border-radius: 50%; background: var(--c); flex: none; }
+.tile .h .q { margin-left: auto; }
+.tile b { display: block; font: 600 23px/1.25 var(--numf); font-variant-numeric: tabular-nums; margin-top: 6px; color: var(--ink); }
+.tile small { color: var(--muted); font-size: 12px; }
+.tile[data-tab=delete] { --c: var(--del); --cs: var(--del-soft); } .tile[data-tab=review] { --c: var(--rev); --cs: var(--rev-soft); }
+.tile[data-tab=keep] { --c: var(--keep); --cs: var(--keep-soft); } .tile[data-tab=dupes] { --c: var(--dup); --cs: var(--dup-soft); }
+.tile[data-tab=group] { --c: var(--grp); --cs: var(--grp-soft); } .tile[data-tab=all] { --c: var(--muted); --cs: var(--sunk); }
+@media (max-width: 900px) { .tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); } .intro { grid-template-columns: 1fr; } }
+.tabnote { font-size: 13px; color: var(--muted); margin: -2px 2px 12px; }
+.toolbar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 10px; }
+.toolbar input[type=search] { flex: 1; min-width: 180px; }
+.list { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; box-shadow: var(--shadow); }
+.lhead { display: grid; grid-template-columns: 22px 1fr 92px 168px 66px; gap: 14px; padding: 9px 18px; background: var(--sunk);
+  border-bottom: 1px solid var(--line); font-size: 12px; color: var(--muted); align-items: center; }
+.lhead span { display: inline-flex; gap: 5px; align-items: center; }
+.it { display: grid; grid-template-columns: 22px 1fr 92px 168px 66px; gap: 14px; padding: 14px 18px; border-top: 1px solid var(--line); align-items: start; transition: background .12s; }
+.lhead + .it, .it:first-child { border-top: 0; }
+.it:hover { background: var(--sunk); }
+.it.sel { background: var(--accent-soft); }
+.it.gone { opacity: .5; }
 .it.gone .nm { text-decoration: line-through; }
-.it input { margin-top: 3px; accent-color: var(--accent); width: 16px; height: 16px; }
-.nm { font-weight: 600; word-break: break-all; }
-.pth { color: var(--muted); font-size: 12px; word-break: break-all; }
-.why { font-size: 12px; color: var(--muted); margin-top: 2px; }
-.ev { display: inline-block; font-size: 11px; color: var(--muted); border: 1px solid var(--line); border-radius: 4px; padding: 0 5px; margin-top: 4px; }
-.drive.off { opacity: .7; }
-.chip { display: inline-block; font-size: 11px; padding: 1px 7px; border-radius: 99px; background: var(--soft); color: var(--accent); margin-right: 4px; font-weight: 400; }
-.sz { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
-.sz small { display: block; color: var(--muted); font-size: 11px; }
+.it > input { margin-top: 3px; }
+.nm { font-weight: 600; word-break: break-all; color: var(--ink); }
+.pth { color: var(--muted); font-size: 12px; word-break: break-all; margin-top: 1px; }
+.why { font-size: 12.5px; color: var(--ink2); margin-top: 5px; }
+.chip { display: inline-block; font-size: 11px; font-weight: 500; padding: 0 7px; border-radius: 5px; background: var(--surface);
+  color: var(--ink2); margin-right: 5px; vertical-align: 1px; line-height: 18px; }
+.ev { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; color: var(--muted); border: 1px solid var(--line2);
+  border-radius: 5px; padding: 0 6px; margin-top: 6px; cursor: help; line-height: 18px; }
+.sz { text-align: right; font-family: var(--numf); font-size: 15px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.sz small { display: block; color: var(--muted); font: 12px var(--sans); margin-top: 2px; }
 .verdict { font-size: 12px; }
-.badge { display: inline-block; padding: 1px 8px; border-radius: 5px; font-weight: 600; }
+.vtop { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.badge { display: inline-block; padding: 1px 9px; border-radius: 6px; font-weight: 600; font-size: 12px; line-height: 20px; }
 .badge.delete { background: var(--del-soft); color: var(--del); }
 .badge.review { background: var(--rev-soft); color: var(--rev); }
 .badge.keep { background: var(--keep-soft); color: var(--keep); }
-.pbar { height: 4px; background: var(--line); border-radius: 2px; margin-top: 5px; overflow: hidden; }
-.pbar i { display: block; height: 100%; }
-.icon { border: 0; background: none; padding: 2px; cursor: pointer; color: var(--muted); font-size: 16px; }
-.dg { border-top: 1px solid var(--line); padding: 10px 14px; }
+.badge.done { background: var(--surface); color: var(--muted); }
+.score { font: 600 19px/1 var(--numf); font-variant-numeric: tabular-nums; cursor: help; border-bottom: 1px dotted var(--faint); }
+.pbar { position: relative; height: 5px; background: var(--surface); border-radius: 3px; margin-top: 8px; overflow: hidden; }
+.pbar i { display: block; height: 100%; border-radius: 3px; }
+.acts { display: flex; gap: 2px; justify-content: flex-end; }
+.icon { border: 0; background: none; padding: 5px; border-radius: 7px; color: var(--muted); display: grid; place-items: center; }
+.icon:hover { background: var(--surface); color: var(--ink); }
+.icon svg { width: 17px; height: 17px; }
+.dg { border-top: 1px solid var(--line); padding: 14px 18px; }
 .dg:first-child { border-top: 0; }
-.dg h4 { margin: 0 0 6px; font-size: 13px; }
-.dg .keep { font-size: 12px; color: var(--keep); word-break: break-all; }
-.dg .copy { display: flex; gap: 8px; align-items: flex-start; font-size: 12px; margin-top: 4px; word-break: break-all; }
-.empty { padding: 40px; text-align: center; color: var(--muted); }
-.more { display: block; margin: 10px auto; }
-.foot { position: fixed; left: 0; right: 0; bottom: 0; background: var(--panel); border-top: 1px solid var(--line); }
-.foot .wrap { padding: 10px 16px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
-.foot .sel { margin-right: auto; }
-.toast { position: fixed; right: 16px; bottom: 76px; background: var(--ink); color: var(--bg); padding: 10px 14px; border-radius: 8px; max-width: 420px; display: none; white-space: pre-line; font-size: 13px; }
-.hint { font-size: 12px; color: var(--muted); margin-top: 8px; }
-.modal { position: fixed; inset: 0; background: rgba(0,0,0,.45); display: flex; align-items: flex-start; justify-content: center; padding: 40px 16px; overflow: auto; z-index: 50; }
-.modal .box { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; width: 100%; max-width: 720px; padding: 20px; }
-.modal h2 { margin: 0 0 4px; font-size: 18px; }
-.modal h3 { margin: 18px 0 6px; font-size: 14px; }
-.modal .li { display: flex; gap: 8px; align-items: center; padding: 4px 0; font-size: 13px; word-break: break-all; }
-.modal .li .grow { flex: 1; }
-.modal .li button, .modal .row button { padding: 3px 10px; }
-.modal input[type=number] { width: 70px; }
-.modal select { min-width: 110px; }
-.err { color: var(--del); font-size: 13px; white-space: pre-line; }
-.ic2 { display: flex; flex-direction: column; gap: 2px; }
-.modes { display: flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; margin-left: auto; }
-.modes button { border: 0; border-radius: 0; padding: 6px 18px; background: var(--panel); }
-.modes button.on { background: var(--accent); color: var(--accent-ink); }
-.modes + .pill { margin-left: 0; }
-.lbl { font-weight: 600; margin-bottom: 6px; }
-input[type=text] { padding: 6px 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--ink); flex: 1; min-width: 200px; font: inherit; }
-.srcs { display: flex; flex-direction: column; gap: 4px; margin-bottom: 8px; }
-.src { display: flex; gap: 8px; align-items: center; background: var(--soft); border-radius: 6px; padding: 4px 8px; font-size: 13px; word-break: break-all; }
-.src button { margin-left: auto; padding: 0 6px; border: 0; background: none; color: var(--muted); cursor: pointer; }
-.oit { display: grid; grid-template-columns: 28px 1fr minmax(180px, 320px) 34px; gap: 10px; padding: 10px 14px; border-top: 1px solid var(--line); align-items: start; }
+.dg h4 { margin: 0 0 8px; font-size: 13.5px; font-weight: 600; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.dg h4 .num { font-size: 15px; }
+.dg .keepline { font-size: 12.5px; color: var(--keep); word-break: break-all; display: flex; gap: 6px; }
+.dg .copy { display: flex; gap: 9px; align-items: flex-start; font-size: 12.5px; margin-top: 6px; word-break: break-all; cursor: pointer; }
+.dg .copy input { margin-top: 2px; }
+.empty { padding: 48px 20px; text-align: center; color: var(--muted); }
+.more { display: block; margin: 12px auto; }
+.stats { font-size: 12.5px; color: var(--muted); margin-top: 12px; line-height: 1.7; }
+
+/* ---------- 底栏 ---------- */
+.foot { position: fixed; left: 0; right: 0; bottom: 0; background: color-mix(in srgb, var(--panel) 88%, transparent);
+  backdrop-filter: blur(10px); border-top: 1px solid var(--line); z-index: 20; }
+.foot .wrap { padding: 12px 20px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.foot .sel { margin-right: auto; color: var(--ink2); }
+.foot .sel b { font-family: var(--numf); font-size: 16px; }
+.toast { position: fixed; right: 20px; bottom: 84px; background: var(--ink); color: var(--bg); padding: 12px 16px; border-radius: 12px;
+  max-width: 440px; display: none; white-space: pre-line; font-size: 13px; box-shadow: var(--shadow-lg); z-index: 60; }
+
+/* ---------- 弹窗 ---------- */
+.modal { position: fixed; inset: 0; background: rgba(31, 30, 29, .38); display: flex; align-items: flex-start; justify-content: center;
+  padding: 48px 16px; overflow: auto; z-index: 50; backdrop-filter: blur(2px); }
+.modal .box { background: var(--bg); border: 1px solid var(--line); border-radius: 18px; width: 100%; max-width: 760px; padding: 26px 28px;
+  box-shadow: var(--shadow-lg); position: relative; }
+.modal .box.small { max-width: 480px; }
+.modal h2 { font: 600 21px/1.3 var(--serif); margin: 0 0 4px; }
+.modal .close { position: absolute; top: 16px; right: 16px; }
+.sec { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 16px 18px; margin-top: 14px; }
+.sec h3 { display: flex; align-items: center; gap: 10px; margin: 0 0 3px; font-size: 15px; font-weight: 600; }
+.sec h3 .ic { width: 28px; height: 28px; border-radius: 8px; display: grid; place-items: center; background: var(--accent-soft); color: var(--accent); flex: none; }
+.sec h3 .ic svg { width: 16px; height: 16px; }
+.sec > .sub { margin: 0 0 10px 38px; }
+.sec .body { margin-left: 38px; }
+.li { display: flex; gap: 10px; align-items: center; padding: 7px 10px; font-size: 13px; word-break: break-all; background: var(--sunk);
+  border-radius: 9px; margin-bottom: 6px; }
+.li .grow { flex: 1; }
+.li button { padding: 3px 10px; font-size: 12.5px; }
+.none { font-size: 13px; color: var(--faint); padding: 4px 0 8px; }
+.err { color: var(--del); font-size: 13px; white-space: pre-line; margin-top: 10px; }
+.slider { margin: 10px 0 4px; }
+.slider .lab { display: flex; justify-content: space-between; font-size: 13px; color: var(--ink2); margin-bottom: 4px; }
+.slider .lab b { font-family: var(--numf); font-size: 15px; }
+input[type=range] { width: 100%; accent-color: var(--accent); margin: 0; }
+.zonebar { display: flex; height: 26px; border-radius: 8px; overflow: hidden; font-size: 11.5px; margin: 12px 0 6px; }
+.zonebar span { display: grid; place-items: center; overflow: hidden; white-space: nowrap; color: #fff; font-weight: 600; transition: flex-basis .15s; }
+.zonebar span:nth-child(1) { background: var(--keep); } .zonebar span:nth-child(2) { background: var(--rev); } .zonebar span:nth-child(3) { background: var(--del); }
+@media (prefers-color-scheme: dark) { .zonebar span { color: #1f1e1d; } }
+.preview { font-size: 12.5px; color: var(--ink2); background: var(--sunk); border-radius: 9px; padding: 8px 12px; margin-top: 8px; }
+.split { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); margin-top: 4px; }
+.mfoot { display: flex; gap: 10px; justify-content: flex-end; margin-top: 18px; }
+
+/* 说明文档 */
+.toc { display: flex; gap: 6px; flex-wrap: wrap; margin: 14px 0 4px; }
+.toc button { padding: 4px 11px; font-size: 12.5px; border-radius: 99px; }
+.doc h3 { font: 600 16.5px/1.4 var(--serif); margin: 24px 0 8px; scroll-margin-top: 20px; }
+.doc p, .doc li { font-size: 13.5px; color: var(--ink2); }
+.doc p { margin: 6px 0; }
+.doc ul { margin: 6px 0; padding-left: 20px; }
+.doc li { margin: 4px 0; }
+.doc b { color: var(--ink); }
+.doc .formula { font-family: var(--serif); background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 10px 14px;
+  margin: 8px 0; font-size: 14px; text-align: center; }
+.doc table { border-collapse: collapse; width: 100%; font-size: 13px; margin: 8px 0; background: var(--panel); border-radius: 10px; overflow: hidden; }
+.doc td { border-top: 1px solid var(--line); padding: 8px 12px; vertical-align: top; color: var(--ink2); }
+.doc tr:first-child td { border-top: 0; }
+.doc td:first-child { white-space: nowrap; font-weight: 600; color: var(--ink); width: 1%; }
+.askbody { white-space: pre-line; font-size: 13.5px; color: var(--ink2); margin-top: 10px; max-height: 50vh; overflow: auto; }
+
+/* ---------- 整理 ---------- */
+.srcs { display: flex; flex-direction: column; gap: 6px; margin-bottom: 10px; }
+.src { display: flex; gap: 8px; align-items: center; background: var(--sunk); border: 1px solid var(--line); border-radius: 9px; padding: 6px 10px;
+  font-size: 13px; word-break: break-all; }
+.src button { margin-left: auto; padding: 0 7px; border: 0; background: none; color: var(--muted); }
+.choices { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
+.choice { display: flex; gap: 11px; align-items: flex-start; border: 1px solid var(--line2); border-radius: 12px; padding: 12px 14px; cursor: pointer; transition: border-color .15s, background .15s; }
+.choice:has(input:checked) { border-color: var(--accent); background: var(--accent-soft); }
+.choice input { margin-top: 3px; }
+.choice b { display: block; font-size: 14px; }
+.choice span { font-size: 12.5px; color: var(--muted); }
+@media (max-width: 720px) { .choices { grid-template-columns: 1fr; } }
+.field { margin-bottom: 12px; }
+.field .flabel { display: flex; gap: 6px; align-items: center; font-weight: 600; margin-bottom: 6px; font-size: 13.5px; }
+.oit { display: grid; grid-template-columns: 22px 1fr minmax(200px, 330px) 40px; gap: 14px; padding: 14px 18px; border-top: 1px solid var(--line); align-items: start; }
 .oit:first-child { border-top: 0; }
-.oit.gone { opacity: .5; }
+.oit:hover { background: var(--sunk); }
+.oit.gone { opacity: .55; }
+.oit > input { margin-top: 3px; }
 .oit select { width: 100%; }
-.oit input { margin-top: 3px; accent-color: var(--accent); width: 16px; height: 16px; }
-.conf { font-size: 11px; color: var(--muted); margin-top: 3px; }
-.hist { display: flex; gap: 10px; align-items: center; padding: 6px 0; border-top: 1px solid var(--line); font-size: 13px; }
-.hist:first-of-type { border-top: 0; }
+.conf { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; font-size: 11.5px; color: var(--muted); margin-top: 6px; }
+.conf .ev { margin-top: 0; }
+.hist { display: flex; gap: 12px; align-items: center; padding: 10px 0; border-top: 1px solid var(--line); font-size: 13px; }
+.hist:first-child { border-top: 0; }
+.hist .when { font-family: var(--numf); color: var(--ink2); white-space: nowrap; }
 .hist .grow { flex: 1; color: var(--muted); word-break: break-all; }
-@media (max-width: 720px) { .oit { grid-template-columns: 24px 1fr; } .oit .dst { grid-column: 2; } .oit .icon { display: none; } }
 @media (max-width: 720px) {
-  .it { grid-template-columns: 24px 1fr 80px; }
-  .it .verdict { grid-column: 2 / 4; }
-  .it .icon { display: none; }
-  .drive { min-width: 0; flex: 1; }
+  .oit { grid-template-columns: 22px 1fr; } .oit .dst { grid-column: 2; } .oit .icon { display: none; }
+  .it, .lhead { grid-template-columns: 22px 1fr 80px; } .it .verdict { grid-column: 2 / 4; } .it .acts, .lhead .hv, .lhead .ha { display: none; }
+  .drive { min-width: 0; flex: 1; } .zones { width: 100%; } .wrap { padding: 16px; }
 }
 </style>
 </head>
 <body>
 <div class="wrap">
   <header>
-    <div>
-      <h1>盘算 <span class="en">Reckon</span></h1>
-      <div class="sub">规则 + Laya 本地决策模型 · 清理只移到回收站 · 整理可一键撤销</div>
+    <div class="brand">
+      <div class="logo" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round">
+        <path d="M4 6h16M4 12h16M4 18h16"/><circle cx="8" cy="6" r="1.8" fill="#fff"/><circle cx="15" cy="12" r="1.8" fill="#fff"/><circle cx="10" cy="18" r="1.8" fill="#fff"/></svg></div>
+      <div>
+        <h1>盘算<span class="en">Reckon</span></h1>
+        <div class="tagline">规则 + Laya 本地决策模型，先替你把磁盘盘算一遍 · 清理只进回收站 · 整理可撤销</div>
+      </div>
     </div>
     <nav class="modes" id="modes"><button data-mode="clean" class="on">清理</button><button data-mode="org">整理</button></nav>
-    <button id="openSettings" title="永远保留的文件夹、不再提示的项、整理时的默认去处、判断阈值">⚙ 设置</button>
-    <span class="pill" id="model">Laya 加载中…</span>
+    <span class="status loading" id="model" data-tip="Laya 是在你电脑上运行的决策模型，不联网。"><i></i><span>Laya 加载中…</span></span>
+    <button class="ghost" id="openHelp" title="每个功能、分数、标签是什么意思">说明</button>
+    <button id="openSettings" title="永远保留的文件夹、不再提示的项、整理时的默认去处、判断标准">设置</button>
   </header>
 
 <section id="clean">
   <div class="card">
-    <div class="row" id="drives"></div>
-    <div class="row" style="margin-top:12px">
-      <label class="opt">单个文件至少 <input type="number" id="minsize" value="20" min="1"> MB</label>
-      <label class="opt">模型最多判断 <input type="number" id="maxlaya" value="" min="0" step="100" placeholder="不限" title="留空表示全部判断；文件没变的会沿用上次的判断，不重复花时间"> 个</label>
-      <label class="opt"><input type="checkbox" id="dupes" checked> 查找重复文件</label>
-      <label class="opt"><input type="checkbox" id="uselaya" checked> 使用 Laya</label>
-      <span style="flex:1"></span>
+    <div class="step"><span class="n">①</span><b>选择要扫描的磁盘</b></div>
+    <p class="desc">只看、不改：扫描只会读取文件信息（和文档开头的一小段），不会删除或移动任何东西。系统目录、已安装的软件、.git 仓库会自动跳过。</p>
+    <div class="drives" id="drives"></div>
+    <div class="opts">
+      <label class="opt">单个文件至少 <input type="number" id="minsize" value="20" min="1"> MB
+        <button class="q" type="button" data-tip="只列出不小于这个大小的文件；太小的文件删了也腾不出多少空间。&#10;下载文件夹不受这个限制，里面的文件都会列出。&#10;缓存目录按整个文件夹计算，也不受限制。">?</button></label>
+      <label class="opt">模型最多判断 <input type="number" id="maxlaya" value="" min="0" step="100" placeholder="不限"> 个
+        <button class="q" type="button" data-tip="Laya 每判断一个文件大约 0.5–1 秒。&#10;留空 = 全部判断（推荐）。填了数字，就只判断最拿不准、最大的前 N 个，其余只按规则。&#10;文件和上次扫描时一样的，直接沿用上次的判断，不占名额也不花时间。">?</button></label>
+      <label class="opt"><input type="checkbox" id="dupes" checked> 查找重复文件
+        <button class="q" type="button" data-tip="找出内容完全相同的多份文件：先比大小，再比开头和结尾，最后逐字节完整比对确认。&#10;大约多花 20–40 秒。">?</button></label>
+      <label class="opt"><input type="checkbox" id="uselaya" checked> 使用 Laya
+        <button class="q" type="button" data-tip="关掉就只按规则（位置、类型、时间）判断，速度快，&#10;但分不清“课件”和“能重新下载的软件压缩包”这种要看内容才知道的情况。">?</button></label>
+      <span class="spacer"></span>
       <button id="stop" disabled>停止</button>
       <button class="primary" id="scan">开始扫描</button>
     </div>
     <div class="progress" id="prog"><i></i></div>
-    <div class="msg" id="msg">选好磁盘后点“开始扫描”。下载文件夹里的文件不受大小限制，都会列出。</div>
+    <div class="msg" id="msg">选好磁盘后点“开始扫描”。第一次大约 10 分钟（主要是 Laya 逐个判断），以后文件没变就沿用上次的判断，一两分钟。</div>
+  </div>
+
+  <div class="card" id="intro">
+    <div class="step"><b>第一次用？三步就好</b></div>
+    <div class="intro">
+      <div class="s"><div class="n">1</div><b>扫描</b><p>选磁盘，点「开始扫描」。程序给每个候选文件打一个<b>清理建议分</b>，并写明理由。</p></div>
+      <div class="s"><div class="n">2</div><b>看建议、勾选</b><p>结果按「建议删除 / 需要你看 / 重复文件 / 缓存目录 / 建议保留」分栏。每栏上方有说明，拿不准的点 <span class="q">?</span> 看看。</p></div>
+      <div class="s"><div class="n">3</div><b>移到回收站</b><p>只会移到回收站，随时能恢复。确认没问题后，再自己清空回收站腾出空间。</p></div>
+    </div>
+    <div class="safe"><span>全程离线，文件信息不出这台电脑</span><span>不会自动删除任何东西</span><span>扫描后有变化的文件不删</span><span>重复文件删前再完整比对</span></div>
+    <div class="hint">想了解分数怎么算、每个标签的意思：<a href="#" data-help="score">看说明</a>。</div>
   </div>
 
   <div id="out" hidden>
+    <div class="step" style="margin:6px 2px 10px"><span class="n">②</span><b>查看建议，勾选要清理的</b></div>
+    <div class="explain" id="explain">
+      <div class="grow"><b>清理建议分</b>（0–100）表示“这一项有多像可以删的东西”，由规则和 Laya 一起算出，用来排序和分栏。
+        它<b>不是</b>“删了没事”的概率——分高只说明像，最后要你看一眼。<a href="#" data-help="score">怎么算的？</a></div>
+      <div class="zones" id="zones"></div>
+    </div>
     <div class="tiles" id="tiles"></div>
+    <div class="tabnote" id="tabnote"></div>
     <div class="toolbar">
-      <select id="ftype"></select>
-      <select id="ftopic"></select>
-      <select id="sort">
-        <option value="gain">按“可释放 × 建议分”排序</option>
+      <select id="ftype" title="按文件类型筛选"></select>
+      <select id="ftopic" title="按文件名里的关键词猜出的主题筛选"></select>
+      <select id="sort" title="排序方式">
+        <option value="gain">按“能腾出的空间 × 建议分”排序</option>
         <option value="size">按大小排序</option>
         <option value="p">按清理建议分排序</option>
         <option value="age">按多久没动排序</option>
@@ -170,33 +359,43 @@ input[type=text] { padding: 6px 8px; border: 1px solid var(--line); border-radiu
       <input type="search" id="q" placeholder="搜索文件名或路径">
     </div>
     <div class="list" id="list"></div>
-    <div class="hint" id="stats"></div>
+    <div class="stats" id="stats"></div>
   </div>
 </section>
 
 <section id="org" hidden>
   <div class="card">
-    <div class="lbl">要整理的文件或文件夹</div>
+    <div class="step"><span class="n">①</span><b>要整理什么</b></div>
+    <p class="desc">把乱的文件夹（比如「下载」「桌面」）交给盘算，它会给每个文件找一个去处。生成方案只是预览，你确认后才会移动，而且每次整理都能一键撤销。</p>
     <div class="srcs" id="srcs"></div>
     <div class="row">
-      <input type="text" id="srcInput" placeholder="粘贴文件或文件夹路径，回车添加">
+      <input type="text" id="srcInput" placeholder="粘贴文件或文件夹路径，按回车添加">
       <button id="srcPick">选择文件夹…</button>
     </div>
-    <div class="hint">也可以把文件夹直接拖到「整理.bat」上，或运行一次「添加到右键发送到菜单.bat」后：右键 → 发送到 → 盘算 - 整理。
-      交进来的是文件夹时，只整理它的第一层：散落的文件逐个安排，子文件夹整体移动。</div>
-    <div class="row" style="margin-top:14px">
-      <label class="opt"><input type="radio" name="omode" value="topic" checked> 按主题：放进目标文件夹的现有分类</label>
-      <label class="opt"><input type="radio" name="omode" value="type"> 按类型：分到 文档 / 图片 / 安装包… 子文件夹</label>
+    <div class="hint">也可以把文件夹直接拖到 Reckon.exe（源码运行时是「整理.bat」）上；或者加到右键菜单后：右键 → 发送到 → 盘算 - 整理。
+      交进来的是文件夹时，只整理它的第一层：散落的文件逐个安排，子文件夹整体移动。软件目录、系统目录不会整理。</div>
+  </div>
+
+  <div class="card">
+    <div class="step"><span class="n">②</span><b>怎么整理</b></div>
+    <p class="desc">两种方式都会先应用你在「设置」里写的默认去处（比如安装包都放到某个文件夹）。</p>
+    <div class="choices">
+      <label class="choice"><input type="radio" name="omode" value="topic" checked>
+        <div><b>按主题</b><span>放进你已经分好类的文件夹里。比如「三亚攻略.pdf」→「04_旅行\三亚」。先按文件夹名和关键词匹配，匹配不上的交给 Laya 在现有分类里挑。</span></div></label>
+      <label class="choice"><input type="radio" name="omode" value="type">
+        <div><b>按类型</b><span>按扩展名分到「文档 / 图片 / 视频 / 安装包 / 压缩包…」子文件夹。不需要目标文件夹，最快。</span></div></label>
     </div>
-    <div class="row" style="margin-top:10px">
-      <span class="opt" id="targetLbl">目标文件夹</span>
-      <input type="text" id="target" placeholder="例如你平时分好类的资料文件夹">
-      <button id="targetPick">选择…</button>
+    <div class="field">
+      <div class="flabel"><span id="targetLbl">目标文件夹</span>
+        <button class="q" type="button" id="targetTip" data-tip="按主题整理时，盘算会读取这个文件夹里现有的分类（往下三层），把文件放进最合适的那个。&#10;它只会放进已有的文件夹，不会自己发明新分类。">?</button></div>
+      <div class="row"><input type="text" id="target" placeholder="例如你平时分好类的资料文件夹"><button id="targetPick">选择…</button></div>
     </div>
-    <div class="row" style="margin-top:12px">
-      <label class="opt">模型最多判断 <input type="number" id="omax" value="300" min="0" step="50"> 个</label>
-      <label class="opt"><input type="checkbox" id="ouselaya" checked> 使用 Laya</label>
-      <span style="flex:1"></span>
+    <div class="opts">
+      <label class="opt">模型最多判断 <input type="number" id="omax" value="300" min="0" step="50" placeholder="不限"> 个
+        <button class="q" type="button" data-tip="只在「按主题」时用到：文件夹名和关键词都匹配不上的文件，交给 Laya 在现有分类里选，每个大约 1 秒。&#10;超过这个数量的，留给你自己选。留空或 0 = 不限。">?</button></label>
+      <label class="opt"><input type="checkbox" id="ouselaya" checked> 使用 Laya
+        <button class="q" type="button" data-tip="关掉就只按文件夹名和关键词匹配，匹配不上的都留给你选。">?</button></label>
+      <span class="spacer"></span>
       <button class="primary" id="plan">生成整理方案</button>
     </div>
     <div class="progress" id="oprog"><i></i></div>
@@ -204,6 +403,9 @@ input[type=text] { padding: 6px 8px; border: 1px solid var(--line); border-radiu
   </div>
 
   <div id="oout" hidden>
+    <div class="step" style="margin:6px 2px 10px"><span class="n">③</span><b>检查方案，勾选要移动的</b></div>
+    <div class="explain"><div class="grow">每一行右边是建议的去处，可以改成别的，也可以选「不移动」。下面的<b>依据</b>说明这个去处是怎么找到的，
+      <b>把握</b>（0–100）越高越确定。拿不准的归到「需要你选」，不会自动移动。</div></div>
     <div class="toolbar">
       <select id="ofilter">
         <option value="ok">已找到去处</option>
@@ -215,12 +417,12 @@ input[type=text] { padding: 6px 8px; border: 1px solid var(--line); border-radiu
       <span class="sub" id="osum"></span>
     </div>
     <div class="list" id="olist"></div>
-    <div class="hint" id="onotes"></div>
+    <div class="stats" id="onotes"></div>
   </div>
 
-  <div class="card" style="margin-top:14px">
-    <div class="lbl">整理记录</div>
-    <div id="hist"><div class="sub">还没有整理过</div></div>
+  <div class="card" style="margin-top:16px">
+    <div class="step"><b>整理记录</b><button class="q" type="button" data-tip="每次执行整理都记在这里（记录在移动之前就写好，程序中途被关掉也能撤销）。&#10;撤销会把这次移动的文件全部放回原处；放不回去的（比如原位置又有了同名文件）会留在记录里，处理好后可以再试一次。">?</button></div>
+    <div id="hist"><div class="none">还没有整理过</div></div>
   </div>
 </section>
 </div>
@@ -228,49 +430,159 @@ input[type=text] { padding: 6px 8px; border: 1px solid var(--line); border-radiu
 <div class="foot">
   <div class="wrap" id="footClean">
     <span class="sel" id="sel">未选择</span>
-    <button id="selall">全选当前列表</button>
-    <button id="selnone">清空选择</button>
-    <button class="danger" id="trash" disabled>移到回收站</button>
+    <button class="ghost" id="selall">全选筛选结果</button>
+    <button class="ghost" id="selnone">清空选择</button>
+    <button class="danger" id="trash" disabled title="只会移到回收站，可以恢复">移到回收站</button>
   </div>
   <div class="wrap" id="footOrg" hidden>
     <span class="sel" id="osel">未选择</span>
-    <button id="oselall">全选当前列表</button>
-    <button id="oselnone">清空选择</button>
-    <button class="primary" id="orun" disabled>执行整理（移动）</button>
+    <button class="ghost" id="oselall">全选筛选结果</button>
+    <button class="ghost" id="oselnone">清空选择</button>
+    <button class="primary" id="orun" disabled title="会留下整理记录，可以一键撤销">执行整理（移动）</button>
   </div>
 </div>
 <div class="toast" id="toast"></div>
+<div id="tipbox" role="tooltip"></div>
 
+<!-- 确认框 -->
+<div class="modal" id="ask" hidden>
+  <div class="box small">
+    <h2 id="askTitle"></h2>
+    <div class="askbody" id="askBody"></div>
+    <div class="mfoot"><button id="askCancel">取消</button><button class="primary" id="askOk">确定</button></div>
+  </div>
+</div>
+
+<!-- 设置 -->
 <div class="modal" id="settings" hidden>
   <div class="box">
+    <button class="ghost close" id="sClose" title="关闭">✕</button>
     <h2>设置</h2>
-    <div class="sub">保存后立即生效；阈值和权重会让当前结果重新分栏，下次扫描也按新设置判断。</div>
+    <div class="sub">保存后立即生效：当前结果会按新设置重新分栏，以后的扫描和整理也按这里来。设置存在本机，不会上传。</div>
 
-    <h3>永远保留的文件夹</h3>
-    <div class="sub">这些文件夹里的东西不会出现在清理建议里，也不能从页面上删除；查重时优先保留这里的那一份。</div>
-    <div id="sKeep"></div>
-    <div class="row" style="margin-top:6px"><input type="text" id="sKeepIn" placeholder="粘贴文件夹路径"><button id="sKeepPick">选择…</button><button id="sKeepAdd">添加</button></div>
-
-    <h3>以后不再提示的项</h3>
-    <div class="sub">在清理列表里点过「不再提示」的项。</div>
-    <div id="sIgnored"></div>
-
-    <h3>整理时的默认去处</h3>
-    <div class="sub">某类文件整理时总是放到固定的文件夹，比如安装包都放到 D:\软件安装包。优先于其他判断，两种整理方式都生效。</div>
-    <div id="sDest"></div>
-    <div class="row" style="margin-top:6px"><select id="sDestType"></select><input type="text" id="sDestIn" placeholder="文件夹路径"><button id="sDestPick">选择…</button><button id="sDestAdd">添加</button></div>
-
-    <h3>判断阈值</h3>
-    <div class="row">
-      <label class="opt">清理建议分 ≥ <input type="number" id="sDel" min="50" max="95"> 建议删除</label>
-      <label class="opt">≥ <input type="number" id="sRev" min="10" max="90"> 需要你看</label>
-      <label class="opt">规则权重 <input type="number" id="sW" min="0" max="100"> %（其余给 Laya）</label>
-      <button id="sDefaults">恢复默认</button>
+    <div class="sec">
+      <h3><span class="ic" data-icon="shield"></span>永远保留的文件夹</h3>
+      <div class="sub">这些文件夹里的东西，以及包含它们的上层文件夹，都不会出现在清理建议里，也不能从页面上删除；查重时优先保留这里的那一份。适合放论文、项目、证件照这类绝对不能丢的资料。</div>
+      <div class="body">
+        <div id="sKeep"></div>
+        <div class="row" style="margin-top:6px"><input type="text" id="sKeepIn" placeholder="粘贴文件夹路径"><button id="sKeepPick">选择…</button><button id="sKeepAdd">添加</button></div>
+      </div>
     </div>
-    <div class="sub" style="margin-top:4px">个人资料、备份、疑似重复等无论阈值怎么调，最多只到「需要你看」。</div>
+
+    <div class="sec">
+      <h3><span class="ic" data-icon="bell"></span>以后不再提示的项</h3>
+      <div class="sub">在清理列表里点过<span data-icon="bell" class="inl"></span>「不再提示」的项。缓存目录按名称记（每次扫描都认得），文件按路径记。点「恢复提示」就会重新出现。</div>
+      <div class="body"><div id="sIgnored"></div></div>
+    </div>
+
+    <div class="sec">
+      <h3><span class="ic" data-icon="folder"></span>整理时的默认去处</h3>
+      <div class="sub">某类文件整理时总是放到固定的文件夹，比如安装包都放到 D:\软件安装包。优先于其他判断，两种整理方式都生效。</div>
+      <div class="body">
+        <div id="sDest"></div>
+        <div class="row" style="margin-top:6px"><select id="sDestType"></select><input type="text" id="sDestIn" placeholder="文件夹路径"><button id="sDestPick">选择…</button><button id="sDestAdd">添加</button></div>
+      </div>
+    </div>
+
+    <div class="sec">
+      <h3><span class="ic" data-icon="scale"></span>判断标准</h3>
+      <div class="sub">清理建议分达到哪条线算「建议删除」、哪条线算「需要你看」。线往高调更保守（建议删除的更少），往低调更激进。</div>
+      <div class="body">
+        <div class="zonebar" id="sZone"><span>建议保留</span><span>需要你看</span><span>建议删除</span></div>
+        <div class="slider"><div class="lab"><span>「建议删除」的线：分数 ≥</span><b id="sDelV"></b></div><input type="range" id="sDel" min="50" max="95" step="1"></div>
+        <div class="slider"><div class="lab"><span>「需要你看」的线：分数 ≥</span><b id="sRevV"></b></div><input type="range" id="sRev" min="10" max="90" step="1"></div>
+        <div class="preview" id="sPreview"></div>
+
+        <div class="slider" style="margin-top:18px"><div class="lab"><span>规则和 Laya 各占多少
+          <button class="q" type="button" data-tip="清理建议分 = 规则分 × 规则占比 + Laya 分 × Laya 占比。&#10;规则分看位置、类型、多久没动；Laya 分是模型看了文件名和内容后“倾向删除”的程度。&#10;往左更相信模型，往右更相信规则。没经过模型的项（安装包、图片视频、缓存目录、重复文件）不受影响。">?</button></span>
+          <b id="sWV"></b></div><input type="range" id="sW" min="0" max="100" step="5"></div>
+        <div class="split"><span>← 更相信 Laya</span><span>更相信规则 →</span></div>
+        <div class="hint">个人文件夹（桌面、文档、图片、视频）里的文件、备份文件、聊天软件收到的文件、疑似重复，不管标准怎么调，最多只到「需要你看」。</div>
+        <div class="row" style="margin-top:10px"><button id="sDefaults">恢复默认</button></div>
+      </div>
+    </div>
 
     <div class="err" id="sErr"></div>
-    <div class="row" style="margin-top:16px; justify-content:flex-end"><button id="sCancel">取消</button><button class="primary" id="sSave">保存</button></div>
+    <div class="mfoot"><button id="sCancel">取消</button><button class="primary" id="sSave">保存</button></div>
+  </div>
+</div>
+
+<!-- 说明 -->
+<div class="modal" id="help" hidden>
+  <div class="box">
+    <button class="ghost close" id="hClose" title="关闭">✕</button>
+    <h2>说明</h2>
+    <div class="sub">盘算是一个本地运行的磁盘清理 + 文件整理工具。下面解释页面上每样东西是什么意思。</div>
+    <div class="toc" id="toc"></div>
+    <div class="doc" id="doc">
+      <h3 id="h-use" data-toc="怎么用">怎么用</h3>
+      <p><b>清理</b>：① 选磁盘和选项，点「开始扫描」；② 在各个栏目里看建议，勾选要清理的；③ 点「移到回收站」。确认没问题后，再自己清空回收站，才会真正腾出空间。</p>
+      <p><b>整理</b>：把乱的文件夹交给它，它按主题或类型给每个文件找去处。生成方案只是预览，确认后才移动，每次整理都能一键撤销。</p>
+      <p>第一次扫描大约 10 分钟，主要花在 Laya 逐个判断上；以后文件没变就沿用上次的判断，一两分钟就好。扫描时可以随时「停止」，已经判断过的会保留。</p>
+
+      <h3 id="h-score" data-toc="清理建议分">清理建议分</h3>
+      <p>每个候选项都有一个 0–100 的分数，表示<b>“这一项有多像可以删的东西”</b>，用来排序和分栏。</p>
+      <div class="formula">清理建议分 = 规则分 × <span id="dW1">45</span>% + Laya 分 × <span id="dW2">55</span>%</div>
+      <ul>
+        <li><b>规则分</b>看：在哪（临时目录、下载文件夹、桌面、聊天软件目录…）、什么类型、多久没动、是不是“副本 (1)”这类名字、压缩包是否已经解压过（zip 会逐个核对内容）等。</li>
+        <li><b>Laya 分</b>：本地决策模型看文件名、位置、大小、时间，Word / PPT / Excel / 文本 / 代码还会读开头约 600 字，回答“删除还是保留”，给出倾向删除的程度。</li>
+        <li>安装包、图片、视频、音频不交给模型，只按规则（主要看多久没动）；没下完的下载、崩溃转储一定是垃圾，也只按规则。</li>
+        <li>鼠标放在每一行的分数上，可以看到这一项具体是怎么算出来的。</li>
+      </ul>
+      <p><b>怎么分栏</b>：分数 ≥ <span id="dDel">70</span> 建议删除，≥ <span id="dRev">40</span> 需要你看，其余建议保留（「设置 → 判断标准」里可以改）。
+        个人文件夹（桌面、文档、图片、视频）里的文件、备份文件、聊天软件收到的文件、疑似重复，分数最高算 60，最多到「需要你看」。</p>
+      <p><b>它不是什么</b>：不是“删了没事”的概率，也没有经过校准。分数高只说明“像”，所以程序从不自动删除，每一项都要你勾选。</p>
+
+      <h3 id="h-tabs" data-toc="各个栏目">各个栏目</h3>
+      <table>
+        <tr><td>建议删除</td><td>分数过了「建议删除」线的：临时文件、没下完的下载、很久没动的安装包、已经解压过的压缩包等。</td></tr>
+        <tr><td>需要你看</td><td>分数在中间，或者属于个人资料 / 备份 / 疑似重复：程序拿不准，请你自己判断。</td></tr>
+        <tr><td>重复文件</td><td>内容完全相同的多份文件，每组保留一份（优先保留「永远保留」文件夹里的，其次是最早的那份），其余可以删。删除前会再完整比对一次，并确认保留的那份还在、没被改过。</td></tr>
+        <tr><td>缓存目录</td><td>整个缓存或临时文件夹作为一项：浏览器和应用缓存、pip / npm 缓存、系统临时文件、HuggingFace 模型缓存等。删了软件会自动重建，下载类的缓存用到时要重新下载。</td></tr>
+        <tr><td>建议保留</td><td>分数低的：看起来是有用的资料。列出来是让你知道它们占了多少空间。</td></tr>
+        <tr><td>全部</td><td>以上所有项（按你的规则隐藏的除外）。</td></tr>
+      </table>
+      <p>每块上的大数字是这一栏加起来的大小，下面是项数。</p>
+
+      <h3 id="h-ev" data-toc="依据标签">「依据」标签</h3>
+      <p>分数下面的小标签说明这个判断依据了什么，越往上越可靠：</p>
+      <table>
+        <tr><td>完整比对确认</td><td>重复文件：两份逐字节完整比对过，内容完全相同。</td></tr>
+        <tr><td>疑似重复</td><td>超大文件只抽样比对过，删除前会再完整比对，所以最多到「需要你看」。</td></tr>
+        <tr><td>规则 + 读过内容</td><td>规则和 Laya 一起判断，Laya 读过文件开头的内容片段。</td></tr>
+        <tr><td>规则 + 文件信息</td><td>规则和 Laya 一起判断，Laya 只看了文件名、位置、大小和时间（图片、PDF 等读不了内容）。</td></tr>
+        <tr><td>规则判断</td><td>缓存目录按内置的缓存规则判断，没有经过模型。</td></tr>
+        <tr><td>只按规则</td><td>只按位置、类型、时间等规则判断（安装包、媒体文件，或者这次没用 Laya）。</td></tr>
+      </table>
+      <p>标签后面带「沿用」的，表示文件和上次扫描时一样，直接用了上次的判断。</p>
+
+      <h3 id="h-safe" data-toc="安全措施">安全措施</h3>
+      <ul>
+        <li><b>只进回收站</b>：删除前确认这一项真的能进回收站（本地硬盘、回收站没被关掉、没超过回收站容量），否则跳过并告诉你原因。U 盘、网络盘没有回收站，只能看不能删。</li>
+        <li><b>扫描后有变化的不删</b>：文件被改过就跳过；临时文件、解压出来的软件、模型缓存这类文件夹，删除前会重新核对里面的文件清单，多一个少一个都不删。</li>
+        <li><b>绝不碰</b>：系统目录、已安装的软件、conda 环境、.git 仓库不扫描也不整理；程序组件（dll 等）不会建议删除；目录里面包含受保护的目录，或包含你「永远保留」的文件夹，也不删。</li>
+        <li><b>页面过期保护</b>：在别的页面重新扫描后，旧页面上的勾选会作废；删除、整理、撤销不会同时进行；同一时间只运行一个盘算。</li>
+        <li><b>整理可撤销</b>：每移动一项之前先写记录，程序中途被关掉也能撤销；跨盘移动做到一半失败时，撤销会把两边合并回原处，不会覆盖不一样的文件。</li>
+      </ul>
+
+      <h3 id="h-org" data-toc="整理">整理</h3>
+      <p><b>按主题</b>：读取目标文件夹里现有的分类，把文件放进最合适的那个；<b>按类型</b>：按扩展名分到「文档 / 图片 / 安装包…」子文件夹。</p>
+      <table>
+        <tr><td>你的规则</td><td>你在设置里规定了这类文件的默认去处。</td></tr>
+        <tr><td>同名文件夹</td><td>目标里有和它名字一样（或几乎一样）的文件夹。</td></tr>
+        <tr><td>关键词</td><td>文件名里的词和某个分类文件夹的名字对得上。</td></tr>
+        <tr><td>Laya 判断</td><td>Laya 看了文件名和内容片段，从现有分类里挑了最像的一个。</td></tr>
+        <tr><td>文件类型</td><td>按扩展名分类。</td></tr>
+      </table>
+      <p><b>把握</b>（0–100）越高越确定；拿不准的放到「需要你选」，不会自动勾选。</p>
+
+      <h3 id="h-rules" data-toc="个人规则">个人规则</h3>
+      <p>「设置」里可以设：永远保留的文件夹、以后不再提示的项（每行右边的<span data-icon="bell" class="inl"></span>）、整理时各类文件的默认去处、判断标准。规则保存在本机，下次打开还在。</p>
+
+      <h3 id="h-data" data-toc="数据和隐私">数据和隐私</h3>
+      <p>全部在本机完成：模型在你的电脑上运行，文件名和内容不会发到任何地方。页面只在 127.0.0.1 上打开，并且每次启动都带一个随机口令，别的程序没法冒充页面操作。</p>
+      <p>扫描结果、模型判断的缓存、整理记录、个人规则都存在 <b>%LOCALAPPDATA%\Reckon</b>；删掉这个文件夹就清空了所有记录。</p>
+    </div>
   </div>
 </div>
 
@@ -279,13 +591,42 @@ const TOKEN = "__TOKEN__";
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const gb = (n) => n >= 1 << 30 ? (n / (1 << 30)).toFixed(1) + " GB" : n >= 1 << 20 ? (n / (1 << 20)).toFixed(0) + " MB" : (n / 1024).toFixed(0) + " KB";
+const pct = (x) => Math.round(x * 100);
 const REC = { delete: "建议删除", review: "需要你看", keep: "建议保留" };
 const DEMO_NOTE = "（演示模式，没有真正改动文件）";
 const TABS = [
   ["delete", "建议删除"], ["review", "需要你看"], ["dupes", "重复文件"], ["group", "缓存目录"], ["keep", "建议保留"], ["all", "全部"],
 ];
+const TAB_TIP = {
+  delete: "分数过了「建议删除」线的项：临时文件、没下完的下载、很久没动的安装包、已经解压过的压缩包等。\n仍然要你勾选确认才会删除。",
+  review: "分数在中间，或者属于个人资料 / 备份 / 疑似重复的项：程序拿不准，需要你自己看一眼。",
+  dupes: "内容完全相同的多份文件。每组保留一份（优先保留「永远保留」文件夹里的，其次是最早的那份），其余可以删。",
+  group: "整个缓存 / 临时文件夹作为一项：浏览器缓存、pip / npm 缓存、临时文件等。\n删了软件会自动重建；下载类的缓存用到时要重新下载。",
+  keep: "分数低的项：看起来是有用的资料，建议保留。列出来是让你知道它们占了多少空间。",
+  all: "扫描到的所有候选项（按你的规则隐藏的除外）。",
+};
+const TAB_NOTE = {
+  delete: "这些最像可以删的东西。还是建议扫一眼理由再勾选——分数高不代表一定没用。",
+  review: "程序拿不准的项。个人文件夹里的文件、备份、聊天软件收到的文件、疑似重复，不管分数多高都放在这里。",
+  dupes: "每组里 ✓ 那一份会保留，勾选的是多出来的副本。删除前会再完整比对一次。",
+  group: "缓存目录整块删除。标着「扫描后有变化就跳过」的（临时文件、模型缓存等），删除前会重新核对文件清单。",
+  keep: "这些看起来有用，一般不用动。如果你确定不要了，也可以勾选删除。",
+  all: "所有候选项。可以用上面的类型、主题筛选，或者直接搜索。",
+};
+const ICONS = {
+  folder: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M3 7.5A1.5 1.5 0 0 1 4.5 6H9l2 2h8.5A1.5 1.5 0 0 1 21 9.5v8a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 17.5z"/></svg>',
+  bell: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 16V11a6 6 0 0 1 9.5-4.9M18 11v5l1.5 2H8"/><path d="M10 20a2 2 0 0 0 4 0"/><path d="M4 4l16 16"/></svg>',
+  shield: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6z"/><path d="M9 12l2 2 4-4" stroke-linecap="round"/></svg>',
+  scale: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v16M7 20h10M5 8h14"/><path d="M5 8l-3 6a3 3 0 0 0 6 0zM19 8l-3 6a3 3 0 0 0 6 0z"/></svg>',
+  check: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5 9-10"/></svg>',
+};
+document.querySelectorAll("[data-icon]").forEach((el) => {
+  el.innerHTML = ICONS[el.dataset.icon];
+  if (el.classList.contains("inl")) Object.assign(el.style, { display: "inline-block", width: "14px", height: "14px", verticalAlign: "-2px", margin: "0 2px" });
+});
 
 let results = null, tab = "delete", shown = 300, selected = new Set(), running = false, busy = false;
+let cfg = { delete_at: 0.70, review_at: 0.40, w_rule: 0.45 };  // 当前判断标准，启动时从服务读取
 
 async function api(path, body) {
   const opt = { headers: { "X-Token": TOKEN } };
@@ -301,9 +642,65 @@ async function api(path, body) {
 
 function toast(text) {
   const t = $("toast"); t.textContent = text; t.style.display = "block";
-  clearTimeout(toast.h); toast.h = setTimeout(() => (t.style.display = "none"), 6000);
+  clearTimeout(toast.h); toast.h = setTimeout(() => (t.style.display = "none"), 7000);
 }
 
+/* ---------- 问号说明 ---------- */
+const tipbox = $("tipbox");
+let tipFor = null;
+function showTip(el) {
+  const text = el.dataset.tip; if (!text) return;
+  tipFor = el; tipbox.textContent = text; tipbox.classList.add("show");
+  const r = el.getBoundingClientRect(), b = tipbox.getBoundingClientRect();
+  let x = r.left + r.width / 2 - b.width / 2, y = r.bottom + 8;
+  x = Math.max(12, Math.min(x, innerWidth - b.width - 12));
+  if (y + b.height > innerHeight - 12) y = r.top - b.height - 8;
+  tipbox.style.left = x + "px"; tipbox.style.top = Math.max(12, y) + "px";
+}
+function hideTip() { tipFor = null; tipbox.classList.remove("show"); document.querySelectorAll(".q.open").forEach((q) => q.classList.remove("open")); }
+document.addEventListener("mouseover", (e) => { const el = e.target.closest("[data-tip]"); if (el && el !== tipFor) showTip(el); else if (!el && tipFor && !tipFor.classList.contains("open")) hideTip(); });
+document.addEventListener("focusin", (e) => { const el = e.target.closest("[data-tip]"); if (el) showTip(el); });
+document.addEventListener("focusout", hideTip);
+document.addEventListener("scroll", hideTip, true);
+document.addEventListener("click", (e) => {  // 触屏上点一下问号也能看
+  const q = e.target.closest(".q[data-tip]");
+  if (q) { e.preventDefault(); e.stopPropagation(); const was = q.classList.contains("open"); hideTip(); if (!was) { q.classList.add("open"); showTip(q); } }
+}, true);
+
+/* ---------- 确认框 ---------- */
+function ask(title, body, okLabel = "确定", danger = false) {
+  return new Promise((resolve) => {
+    $("askTitle").textContent = title; $("askBody").textContent = body;
+    const ok = $("askOk"); ok.textContent = okLabel; ok.className = danger ? "danger" : "primary";
+    $("ask").hidden = false; ok.focus();
+    const done = (v) => { $("ask").hidden = true; ok.onclick = $("askCancel").onclick = $("ask").onclick = null; resolve(v); };
+    ok.onclick = () => done(true);
+    $("askCancel").onclick = () => done(false);
+    $("ask").onclick = (e) => { if (e.target === $("ask")) done(false); };
+  });
+}
+document.addEventListener("keydown", (e) => {
+  if (e.key !== "Escape") return;
+  if (!$("ask").hidden) $("askCancel").click();
+  else if (!$("settings").hidden) $("settings").hidden = true;
+  else if (!$("help").hidden) $("help").hidden = true;
+});
+
+/* ---------- 说明 ---------- */
+$("toc").innerHTML = [...document.querySelectorAll("#doc [data-toc]")].map((h) => `<button data-goto="${h.id}">${esc(h.dataset.toc)}</button>`).join("");
+$("toc").addEventListener("click", (e) => { const b = e.target.closest("[data-goto]"); if (b) $(b.dataset.goto).scrollIntoView({ behavior: "smooth", block: "start" }); });
+function openHelp(section) {
+  $("dW1").textContent = pct(cfg.w_rule); $("dW2").textContent = 100 - pct(cfg.w_rule);
+  $("dDel").textContent = pct(cfg.delete_at); $("dRev").textContent = pct(cfg.review_at);
+  $("help").hidden = false; $("help").scrollTop = 0;
+  if (section) setTimeout(() => $("h-" + section).scrollIntoView({ block: "start" }), 30);
+}
+$("openHelp").onclick = () => openHelp();
+$("hClose").onclick = () => { $("help").hidden = true; };
+$("help").addEventListener("click", (e) => { if (e.target === $("help")) $("help").hidden = true; });
+document.addEventListener("click", (e) => { const a = e.target.closest("[data-help]"); if (a) { e.preventDefault(); openHelp(a.dataset.help); } });
+
+/* ---------- 顶部状态、磁盘 ---------- */
 let drivesDrawn = false;
 function drawDrives(drives) {
   if (drivesDrawn) return; drivesDrawn = true;
@@ -313,17 +710,23 @@ function drawDrives(drives) {
     const size = d.total ? `剩余 ${gb(d.free)} / ${gb(d.total)}` : "";
     const note = fixed ? "" : `<div class="sub">${KIND[d.type] || d.type} · 没有回收站，只能查看不能删除</div>`;
     return `<label class="drive ${fixed ? "" : "off"}"><input type="checkbox" value="${esc(d.root)}" ${fixed ? "checked" : ""}>
-      <div><b>${esc(d.root.slice(0, 2))} 盘</b> <span class="sub">${size}</span>
+      <div><b>${esc(d.root.slice(0, 2))}</b> <span class="sub">${size}</span>
       ${d.total ? `<div class="meter"><i style="width:${(d.used / d.total * 100).toFixed(0)}%"></i></div>` : ""}${note}</div></label>`;
   }).join("");
 }
 
 function drawModel(m) {
   const el = $("model");
-  const text = { loading: "Laya 加载中…", ready: "Laya 已就绪", missing: "未找到 Laya 模型，仅用规则", error: "Laya 加载失败，仅用规则",
+  const text = { loading: "Laya 加载中…", ready: "Laya 已就绪", missing: "未找到模型，仅用规则", error: "模型加载失败，仅用规则",
     disabled: "未启用 Laya，仅用规则", demo: "演示模式 · 示例数据" }[m.status];
-  el.textContent = text; el.title = m.error || "";
-  el.className = "pill" + (["ready", "loading", "demo"].includes(m.status) ? "" : " warn");
+  const tip = {
+    loading: "Laya 决策模型正在后台加载（大约 1 分钟）。可以先设置扫描选项，加载好之前开始扫描会只用规则。",
+    ready: "Laya 决策模型已经加载好，在你电脑上运行，不联网。" + (m.backend === "onnx" ? "\n（ONNX 版本，只用 CPU）" : ""),
+    missing: m.error || "", error: m.error || "", disabled: "启动时加了 --no-laya，只按规则判断。",
+    demo: "演示模式：显示的是虚构的示例数据，删除和整理都只是模拟，不会动你的任何文件。",
+  }[m.status];
+  el.querySelector("span").textContent = text; el.dataset.tip = tip;
+  el.className = "status" + (m.status === "loading" ? " loading" : ["ready", "demo"].includes(m.status) ? "" : " warn");
 }
 
 async function poll() {
@@ -355,6 +758,11 @@ async function poll() {
   setTimeout(poll, running ? 700 : 3000);
 }
 
+async function loadCfg() {
+  try { ruleMeta = await api("/api/rules"); cfg = ruleMeta.rules.settings; } catch {}
+}
+
+/* ---------- 清理结果 ---------- */
 async function loadResults() {
   results = await api("/api/results");
   if (!results.items) return;
@@ -369,8 +777,16 @@ async function loadResults() {
   const nHidden = results.items.filter((i) => i.hidden).length;
   $("stats").textContent = (nHidden ? `按你的规则隐藏了 ${nHidden} 项（「设置」里可以修改）。` : "") + `${when} 扫描 ${results.drives.join(" ")}：共 ${s.files.toLocaleString()} 个文件 / ${gb(s.bytes)}，用时 ${results.seconds} 秒，跳过 ${s.programs} 个程序安装目录，${s.errors} 处无权限访问。` +
     (results.used_laya ? "" : " 本次未使用 Laya，仅按规则判断。") + (results.stopped ? " 扫描被中途停止，结果不完整。" : "");
-  $("out").hidden = false;
+  $("out").hidden = false; $("intro").hidden = true;
+  drawZones();
   render();
+}
+
+function drawZones() {
+  const r = pct(cfg.review_at), d = pct(cfg.delete_at);
+  $("zones").innerHTML = `<div class="bar"><i style="width:${r}%"></i><i style="width:${d - r}%"></i><i style="width:${100 - d}%"></i></div>
+    <div class="ticks"><span style="left:0;transform:none">0</span><span style="left:${r}%">${r}</span><span style="left:${d}%">${d}</span><span style="left:100%;transform:translateX(-100%)">100</span></div>
+    <div class="lbls"><span style="width:${r}%">建议保留</span><span style="width:${d - r}%">需要你看</span><span style="width:${100 - d}%">删除</span></div>`;
 }
 
 function inTab(it) {
@@ -397,7 +813,9 @@ function drawTiles() {
     dupes: (i) => i.kind === "dupe", group: (i) => i.kind === "group", keep: (i) => i.rec === "keep" && i.kind !== "dupe", all: () => true,
   };
   $("tiles").innerHTML = TABS.map(([k, label]) =>
-    `<div class="tile ${k === tab ? "on" : ""}" data-tab="${k}"><span>${label}</span><b>${gb(sum(defs[k]))}</b><span>${cnt(defs[k])} 项</span></div>`).join("");
+    `<div class="tile ${k === tab ? "on" : ""}" data-tab="${k}"><div class="h"><i></i>${label}<button class="q" type="button" data-tip="${esc(TAB_TIP[k])}">?</button></div>
+      <b>${gb(sum(defs[k]))}</b><small>${cnt(defs[k])} 项</small></div>`).join("");
+  $("tabnote").textContent = TAB_NOTE[tab];
 }
 
 // 这个分数是规则和模型加权算出来的排序依据，不是“删了没事”的概率，所以叫“清理建议分”并写明依据
@@ -406,41 +824,61 @@ function evidence(it) {  // [短标签, 鼠标悬停时的完整说明]
     const sampled = it.exact === false || it.reasons.some((r) => r.includes("抽样"));
     return sampled ? ["疑似重复", "超大文件只抽样比对过，删除前会把两份完整比对一遍"] : ["完整比对确认", "两份文件逐字节完整比对过，内容完全相同"];
   }
-  if (it.kind === "group") return ["规则判断", "按缓存目录规则判断，没有经过模型"];
+  if (it.kind === "group") return ["规则判断", "按内置的缓存目录规则判断，没有经过模型"];
   if (it.laya) {
-    const again = it.laya.cached ? "。文件和上次扫描时一样，沿用了上次的判断" : "";
-    return it.laya.read ? ["规则 + 读过内容", "规则和 Laya 一起判断，Laya 读过文件开头的内容片段" + again]
-      : ["规则 + 文件信息", "规则和 Laya 一起判断，Laya 只看了文件名、位置、大小和时间" + again];
+    const again = it.laya.cached ? "\n文件和上次扫描时一样，沿用了上次的判断" : "";
+    return it.laya.read ? ["规则 + 读过内容" + (it.laya.cached ? " · 沿用" : ""), "规则和 Laya 一起判断，Laya 读过文件开头的内容片段" + again]
+      : ["规则 + 文件信息" + (it.laya.cached ? " · 沿用" : ""), "规则和 Laya 一起判断，Laya 只看了文件名、位置、大小和时间" + again];
   }
   return ["只按规则", "只按位置、类型、时间等规则判断，没有经过模型"];
 }
-const evTag = (it) => { const [t, tip] = evidence(it); return `<div class="ev" title="${esc(tip)}">${esc(t)}</div>`; };
+const evTag = (it) => { const [t, tip] = evidence(it); return `<span class="ev" data-tip="${esc(tip)}">${esc(t)}</span>`; };
+
+function scoreTip(it) {
+  const s = pct(it.p), w = pct(cfg.w_rule);
+  let t = `清理建议分 ${s}：越高越像可以删的东西（不是“删了没事”的概率）。\n`;
+  if (it.laya && it.rule != null) {
+    t += `= 规则分 ${pct(it.rule)} × ${w}% + Laya 分 ${pct(it.laya.delete)} × ${100 - w}%`;
+    const raw = cfg.w_rule * it.rule + (1 - cfg.w_rule) * it.laya.delete;
+    if (it.capped && raw > it.p + 0.005) t += `\n算出来是 ${pct(raw)}，但这类文件最高只算 60`;
+  } else if (it.laya) t += `规则和 Laya 分数加权（规则占 ${w}%），Laya 倾向删除 ${pct(it.laya.delete)}`;
+  else if (it.kind === "dupe") t += "重复文件按“能不能确认是完全相同的副本”打分";
+  else if (it.kind === "group") t += "缓存目录按内置规则打分";
+  else t += "这一项没有经过模型，只按规则打分";
+  t += `\n\n当前标准：≥ ${pct(cfg.delete_at)} 建议删除，≥ ${pct(cfg.review_at)} 需要你看，其余建议保留。`;
+  if (it.capped) t += "\n这一项属于个人资料 / 备份 / 疑似重复，最多到「需要你看」。";
+  return t;
+}
 
 function row(it) {
   const color = it.rec === "delete" ? "var(--del)" : it.rec === "review" ? "var(--rev)" : "var(--keep)";
   const chips = `<span class="chip">${esc(it.type)}</span>` + (it.topic ? `<span class="chip">${esc(it.topic)}</span>` : "");
   const extra = it.kind === "dupe" ? `<div class="why">保留：${esc(it.dup_of)}</div>` :
     it.kind === "group" && it.paths.length > 1 ? `<div class="why">包含 ${it.paths.length} 个目录/条目</div>` : "";
-  return `<div class="it ${it.trashed ? "gone" : ""}">
-    <input type="checkbox" data-id="${it.id}" ${selected.has(it.id) ? "checked" : ""} ${it.trashed ? "disabled" : ""}>
+  const strict = it.kind === "group" && it.strict ? `<span class="ev" data-tip="删除前会重新核对里面的文件清单（路径、大小、修改时间），扫描后多了、少了或改了任何文件都会跳过。">扫描后有变化就跳过</span> ` : "";
+  return `<div class="it ${it.trashed ? "gone" : ""} ${selected.has(it.id) ? "sel" : ""}">
+    <input type="checkbox" data-id="${it.id}" ${selected.has(it.id) ? "checked" : ""} ${it.trashed ? "disabled" : ""} aria-label="选择 ${esc(it.name)}">
     <div><div class="nm">${chips}${esc(it.name)}</div><div class="pth">${esc(it.path)}</div>
-      <div class="why">${esc(it.reasons.join(" · "))}</div>${extra}</div>
-    <div class="sz">${gb(it.size)}<small>${it.age} 天</small></div>
-    <div class="verdict"><span class="badge ${it.rec}">${it.trashed ? "已移到回收站" : REC[it.rec]}</span>
-      <div class="pbar"><i style="width:${(it.p * 100).toFixed(0)}%;background:${color}"></i></div>
-      <span class="sub">清理建议分 ${(it.p * 100).toFixed(0)}</span>${evTag(it)}</div>
-    <div class="ic2"><button class="icon" title="在资源管理器中显示" data-reveal="${it.id}">📂</button>
-      <button class="icon" title="以后不再提示这一项（可以在设置里恢复）" data-ignore="${it.id}" ${it.trashed ? "hidden" : ""}>🔕</button></div>
+      <div class="why">${esc(it.reasons.join(" · "))}</div>${extra}<div>${strict}${evTag(it)}</div></div>
+    <div class="sz">${gb(it.size)}<small>${it.age} 天没动</small></div>
+    <div class="verdict"><div class="vtop"><span class="badge ${it.trashed ? "done" : it.rec}">${it.trashed ? "已移到回收站" : REC[it.rec]}</span>
+      <span class="score" data-tip="${esc(scoreTip(it))}">${pct(it.p)}</span></div>
+      <div class="pbar"><i style="width:${pct(it.p)}%;background:${color}"></i></div></div>
+    <div class="acts"><button class="icon" data-tip="在资源管理器中显示" data-reveal="${it.id}">${ICONS.folder}</button>
+      <button class="icon" data-tip="以后不再提示这一项（可以在「设置」里恢复）" data-ignore="${it.id}" ${it.trashed ? "hidden" : ""}>${ICONS.bell}</button></div>
   </div>`;
 }
+
+const HEAD = `<div class="lhead"><span></span><span>文件 · 位置 · 理由</span><span style="justify-content:flex-end">大小</span>
+  <span class="hv">结论 · 清理建议分 <button class="q" type="button" data-tip="0–100，越高越像可以删的东西；由规则和 Laya 一起算出。\n鼠标放在每一行的分数上，可以看到它是怎么算出来的。">?</button></span><span class="ha"></span></div>`;
 
 function drawDupes(list) {
   const groups = {};
   list.forEach((it) => (groups[it.dup_group] ||= []).push(it));
   return Object.values(groups).map((copies) => {
     const d = copies[0], total = copies.reduce((a, c) => a + c.size, 0);
-    return `<div class="dg"><h4>${copies.length + 1} 份相同的文件 · 每份 ${gb(d.size)} · 可释放 ${gb(total)} · <span class="ev" title="${esc(evidence(d)[1])}">${esc(evidence(d)[0])}</span></h4>
-      <div class="keep">✔ 保留：${esc(d.dup_of)}</div>
+    return `<div class="dg"><h4><span class="num">${copies.length + 1}</span> 份相同的文件 · 每份 ${gb(d.size)} · 可腾出 <span class="num">${gb(total)}</span> ${evTag(d)}</h4>
+      <div class="keepline">${ICONS.check}<span>保留：${esc(d.dup_of)}</span></div>
       ${copies.map((c) => `<label class="copy"><input type="checkbox" data-id="${c.id}" ${selected.has(c.id) ? "checked" : ""} ${c.trashed ? "disabled" : ""}>
         <span style="${c.trashed ? "text-decoration:line-through;opacity:.5" : ""}">${esc(c.path)}</span></label>`).join("")}</div>`;
   }).join("");
@@ -452,23 +890,25 @@ function render() {
   let html;
   if (!list.length) html = `<div class="empty">这一栏没有内容</div>`;
   else if (tab === "dupes") html = drawDupes(list);
-  else html = list.slice(0, shown).map(row).join("") +
+  else html = HEAD + list.slice(0, shown).map(row).join("") +
     (list.length > shown ? `<button class="more" id="more">再显示 300 项（共 ${list.length} 项）</button>` : "");
   $("list").innerHTML = html;
   const n = list.filter((i) => !i.trashed).length;
   $("selall").textContent = `全选筛选结果（${n} 项）`;
-  $("selall").title = list.length > shown ? `页面上只显示了前 ${shown} 项，全选会选中筛选出的全部 ${n} 项` : "";
+  $("selall").title = list.length > shown ? `页面上只显示了前 ${shown} 项，全选会选中筛选出的全部 ${n} 项` : "选中当前栏目里、符合筛选条件的全部项";
   drawSel();
 }
 
 function drawSel() {
+  if (!results || !results.items) return;
   const items = [...selected].map((id) => results.items[id]);
   const size = items.reduce((a, i) => a + i.size, 0);
-  $("sel").textContent = items.length ? `已选 ${items.length} 项，共 ${gb(size)}` : "未选择";
+  $("sel").innerHTML = items.length ? `已选 ${items.length} 项，共 <b>${gb(size)}</b>` : "未选择";
   $("trash").disabled = !items.length || running || busy;
 }
 
 $("tiles").addEventListener("click", (e) => {
+  if (e.target.closest(".q")) return;
   const t = e.target.closest(".tile"); if (!t) return;
   tab = t.dataset.tab; shown = 300; render();
 });
@@ -479,7 +919,7 @@ $("list").addEventListener("click", async (e) => {
     const id = +ig.dataset.ignore;
     const r = await api("/api/rules/ignore", { ids: [id], scan_id: results.scan_id });
     if (r.stale) { await loadResults(); return toast(r.error); }
-    selected.delete(id); await loadResults();
+    selected.delete(id); hideTip(); await loadResults();
     return toast(`以后不再提示「${results.items[id].name}」，可以在「设置」里恢复`);
   }
   const rv = e.target.closest("[data-reveal]");
@@ -487,12 +927,14 @@ $("list").addEventListener("click", async (e) => {
 });
 $("list").addEventListener("change", (e) => {
   const id = e.target.dataset.id; if (id === undefined) return;
-  e.target.checked ? selected.add(+id) : selected.delete(+id); drawSel();
+  e.target.checked ? selected.add(+id) : selected.delete(+id);
+  const r = e.target.closest(".it"); if (r) r.classList.toggle("sel", e.target.checked);
+  drawSel();
 });
 ["ftype", "ftopic", "sort"].forEach((id) => $(id).addEventListener("change", () => { shown = 300; render(); }));
 $("q").addEventListener("input", () => { shown = 300; render(); });
 $("selall").onclick = () => { if (!results) return; filtered().forEach((i) => !i.trashed && selected.add(i.id)); render(); };
-$("selnone").onclick = () => { selected.clear(); render(); };
+$("selnone").onclick = () => { selected.clear(); if (results) render(); };
 
 $("scan").onclick = async () => {
   const drives = [...document.querySelectorAll("#drives input:checked")].map((i) => i.value);
@@ -517,12 +959,11 @@ $("trash").onclick = async () => {
   const risky = items.filter((i) => i.rec === "keep").length;
   const visible = new Set((tab === "dupes" ? filtered() : filtered().slice(0, shown)).map((i) => i.id));
   const hidden = ids.filter((id) => !visible.has(id)).length;
-  let text = `将 ${ids.length} 项（${gb(size)}）移到回收站：\n` +
-    summarize(items, (i) => i.kind === "dupe" ? "重复文件" : i.kind === "group" ? "缓存目录" : REC[i.rec]) +
-    `\n\n在回收站里可以恢复；确认没问题后再清空回收站才会真正腾出空间。重复文件删除前会再完整比对一次。`;
+  let text = summarize(items, (i) => i.kind === "dupe" ? "重复文件" : i.kind === "group" ? "缓存目录" : REC[i.rec]) +
+    `\n\n在回收站里可以恢复；确认没问题后再清空回收站，才会真正腾出空间。重复文件删除前会再完整比对一次。`;
   if (hidden) text += `\n\n其中 ${hidden} 项不在当前显示的列表里（在别的栏目，或还没展开）。`;
   if (risky) text += `\n注意：其中 ${risky} 项是“建议保留”的。`;
-  if (!confirm(text)) return;
+  if (!await ask(`把 ${ids.length} 项（${gb(size)}）移到回收站？`, text, "移到回收站", true)) return;
   $("trash").disabled = true;
   let r;
   try { r = await api("/api/trash", { ids, scan_id: results.scan_id }); }
@@ -551,8 +992,8 @@ $("modes").addEventListener("click", (e) => { const b = e.target.closest("button
 
 function drawSources() {
   $("srcs").innerHTML = sources.length ? sources.map((p, i) =>
-    `<div class="src">📁 ${esc(p)}<button data-rm="${i}" title="移除">✕</button></div>`).join("")
-    : `<div class="sub">还没有添加</div>`;
+    `<div class="src"><span data-icon="folder" style="width:16px;height:16px;color:var(--muted);flex:none">${ICONS.folder}</span>${esc(p)}<button data-rm="${i}" title="移除">✕</button></div>`).join("")
+    : `<div class="none">还没有添加</div>`;
 }
 function addSource(p) {
   p = (p || "").trim().replace(/^"|"$/g, "");
@@ -564,11 +1005,14 @@ $("srcInput").addEventListener("keydown", (e) => { if (e.key === "Enter") { addS
 $("srcPick").onclick = async () => { const r = await api("/api/pick", { title: "选择要整理的文件夹" }); if (r.path) addSource(r.path); };
 $("targetPick").onclick = async () => { const r = await api("/api/pick", { title: "选择目标文件夹" }); if (r.path) { $("target").value = r.path; store.set("target", r.path); } };
 $("target").addEventListener("change", (e) => store.set("target", e.target.value));
-document.querySelectorAll("input[name=omode]").forEach((r) => r.addEventListener("change", () => {
+function drawOmode() {
   const t = document.querySelector("input[name=omode]:checked").value === "type";
-  $("targetLbl").textContent = t ? "放到哪里（可留空）" : "目标文件夹";
-  $("target").placeholder = t ? "留空则在原文件夹里建类型子文件夹" : "例如你平时分好类的资料文件夹";
-}));
+  $("targetLbl").textContent = t ? "放到哪里（可以留空）" : "目标文件夹";
+  $("target").placeholder = t ? "留空就在原文件夹里建类型子文件夹" : "例如你平时分好类的资料文件夹";
+  $("targetTip").dataset.tip = t ? "按类型整理时，会在这里建「文档」「图片」「安装包」等子文件夹，把文件分进去。\n留空就建在每个文件原来所在的文件夹里。"
+    : "按主题整理时，盘算会读取这个文件夹里现有的分类（往下三层），把文件放进最合适的那个。\n它只会放进已有的文件夹，不会自己发明新分类。";
+}
+document.querySelectorAll("input[name=omode]").forEach((r) => r.addEventListener("change", drawOmode));
 
 $("plan").onclick = async () => {
   if (!sources.length) return toast("先添加要整理的文件或文件夹");
@@ -586,6 +1030,7 @@ async function loadPlan() {
   if (!sources.length && plan.sources) { plan.sources.forEach(addSource); }
   if (!$("target").value && plan.target) $("target").value = plan.target;
   document.querySelector(`input[name=omode][value=${plan.mode}]`).checked = true;
+  drawOmode();
   osel.clear(); odest = {}; oshown = 300;
   plan.items.forEach((it) => { if (it.dest) odest[it.id] = it.dest; });
   const n = (s) => plan.items.filter((i) => i.status === s).length;
@@ -602,19 +1047,27 @@ function oFiltered() {
   return plan.items.filter((i) => (!f || i.status === f) && (!q || i.name.toLowerCase().includes(q)));
 }
 
+const VIA = {
+  name: ["同名文件夹", "目标里有和它名字一样（或几乎一样）的文件夹"],
+  keyword: ["关键词", "文件名里的词和这个分类文件夹的名字对得上"],
+  laya: ["Laya 判断", "Laya 看了文件名和内容片段，从现有分类里挑了最像的一个"],
+  type: ["文件类型", "按扩展名分类"],
+  rule: ["你的规则", "你在「设置 → 整理时的默认去处」里规定了这类文件放这里"],
+};
 function orow(it) {
   const gone = !!it.moved_to;
   const opts = `<option value="">（不移动）</option>` + it.options.map((o) =>
     `<option value="${esc(o.path)}" ${odest[it.id] === o.path ? "selected" : ""}>${esc(o.label)}</option>`).join("");
-  const VIA = { name: "同名文件夹", keyword: "关键词", laya: "Laya 判断", type: "文件类型", rule: "你的规则" };
-  const conf = it.dest ? `依据：${VIA[it.via] || "—"} · 建议分 ${(it.conf * 100).toFixed(0)}` : "";
+  const [via, viaTip] = VIA[it.via] || ["—", ""];
+  const conf = it.dest ? `<span class="ev" data-tip="${esc("依据：" + viaTip)}">${esc(via)}</span>
+    <span data-tip="把握 0–100：越高越确定这个去处是对的。拿不准的会放到「需要你选」，不会自动勾选。">把握 <b class="num">${pct(it.conf)}</b></span>` : "";
   return `<div class="oit ${gone ? "gone" : ""}">
     <input type="checkbox" data-oid="${it.id}" ${osel.has(it.id) ? "checked" : ""} ${gone || !odest[it.id] ? "disabled" : ""}>
-    <div><div class="nm">${it.is_dir ? "📁 " : ""}<span class="chip">${esc(it.type)}</span>${esc(it.name)}</div>
+    <div><div class="nm">${it.is_dir ? `<span data-icon="folder" style="display:inline-block;width:15px;height:15px;vertical-align:-2px;margin-right:4px;color:var(--muted)">${ICONS.folder}</span>` : ""}<span class="chip">${esc(it.type)}</span>${esc(it.name)}</div>
       <div class="pth">${esc(it.path)}</div>
       <div class="why">${gone ? "已移到：" + esc(it.moved_to) : esc(it.reason)} · ${gb(it.size)}</div></div>
-    <div class="dst">${gone ? "" : `<select data-dest="${it.id}">${opts}</select><div class="conf">${conf}</div>`}</div>
-    <button class="icon" title="在资源管理器中显示" data-oreveal="${it.id}">📂</button>
+    <div class="dst">${gone ? "" : `<select data-dest="${it.id}" title="去处：可以改成别的，或选「不移动」">${opts}</select><div class="conf">${conf}</div>`}</div>
+    <button class="icon" data-tip="在资源管理器中显示" data-oreveal="${it.id}">${ICONS.folder}</button>
   </div>`;
 }
 
@@ -630,7 +1083,7 @@ function renderPlan() {
 
 function drawOsel() {
   const n = osel.size, size = [...osel].reduce((a, id) => a + plan.items[id].size, 0);
-  $("osel").textContent = n ? `已选 ${n} 项，共 ${gb(size)}` : "未选择";
+  $("osel").innerHTML = n ? `已选 ${n} 项，共 <b>${gb(size)}</b>` : "未选择";
   $("orun").disabled = !n || running || busy;
 }
 
@@ -659,9 +1112,9 @@ $("oselnone").onclick = () => { osel.clear(); if (plan) renderPlan(); };
 $("orun").onclick = async () => {
   const moves = [...osel].map((id) => ({ id, dest: odest[id] }));
   const label = (id) => (plan.items[id].options.find((o) => o.path === odest[id]) || {}).label || odest[id];
-  const text = `将移动 ${moves.length} 项：\n` + summarize(moves.map((m) => plan.items[m.id]), (i) => "→ " + label(i.id)) +
+  const text = summarize(moves.map((m) => plan.items[m.id]), (i) => "→ " + label(i.id)) +
     `\n\n会留下整理记录，之后可以在「整理记录」里一键撤销。`;
-  if (!confirm(text)) return;
+  if (!await ask(`移动 ${moves.length} 项？`, text, "执行整理")) return;
   $("orun").disabled = true;
   let r;
   try { r = await api("/api/organize/run", { moves, plan_id: plan.plan_id }); }
@@ -676,15 +1129,15 @@ $("orun").onclick = async () => {
 
 async function loadHistory() {
   const h = (await api("/api/organize/history")).history;
-  $("hist").innerHTML = h.length ? h.map((x, i) => `<div class="hist">
-    <span>${new Date(x.time * 1000).toLocaleString()}</span>
+  $("hist").innerHTML = h.length ? h.map((x) => `<div class="hist">
+    <span class="when">${new Date(x.time * 1000).toLocaleString()}</span>
     <span class="grow">移动了 ${x.count} 项：${esc(x.sample.join("、"))}${x.count > 3 ? " 等" : ""}${x.partial ? `（还有 ${x.left} 项没放回）` : ""}</span>
     ${x.undone ? `<span class="sub">已撤销</span>` : `<button data-undo="${esc(x.id)}">${x.partial ? "再试一次" : "撤销"}</button>`}</div>`).join("")
-    : `<div class="sub">还没有整理过</div>`;
+    : `<div class="none">还没有整理过</div>`;
 }
 $("hist").addEventListener("click", async (e) => {
   const b = e.target.closest("[data-undo]"); if (!b) return;
-  if (!confirm("把这次整理移动的文件全部放回原处？")) return;
+  if (!await ask("撤销这次整理？", "把这次整理移动的文件全部放回原处。原位置已经有同名文件的不会覆盖，会留在记录里让你处理。", "撤销")) return;
   let r;
   try { r = await api("/api/organize/undo", { id: b.dataset.undo }); }
   catch (e) { toast("没能撤销：" + e.message); return; }
@@ -698,25 +1151,47 @@ let draft = null, ruleMeta = null;
 function drawSettings() {
   const r = draft;
   $("sKeep").innerHTML = r.keep_dirs.length ? r.keep_dirs.map((d, i) =>
-    `<div class="li"><span class="grow">📁 ${esc(d)}</span><button data-rk="${i}">移除</button></div>`).join("") : `<div class="sub">还没有</div>`;
+    `<div class="li"><span class="grow">${esc(d)}</span><button data-rk="${i}">移除</button></div>`).join("") : `<div class="none">还没有</div>`;
   $("sIgnored").innerHTML = r.ignored.length ? r.ignored.map((e, i) =>
     `<div class="li"><span class="grow">${esc(e.name)} <span class="sub">${esc(e.path)}</span></span><button data-ri="${i}">恢复提示</button></div>`).join("")
-    : `<div class="sub">没有</div>`;
+    : `<div class="none">没有</div>`;
   const dests = Object.entries(r.type_dest);
   $("sDest").innerHTML = dests.length ? dests.map(([t, d]) =>
     `<div class="li"><span class="chip">${esc(t)}</span><span class="grow">→ ${esc(d)}</span><button data-rd="${esc(t)}">移除</button></div>`).join("")
-    : `<div class="sub">还没有</div>`;
+    : `<div class="none">还没有</div>`;
   $("sDestType").innerHTML = ruleMeta.types.map((t) => `<option>${esc(t)}</option>`).join("");
-  $("sDel").value = Math.round(r.settings.delete_at * 100);
-  $("sRev").value = Math.round(r.settings.review_at * 100);
-  $("sW").value = Math.round(r.settings.w_rule * 100);
+  $("sDel").value = pct(r.settings.delete_at);
+  $("sRev").value = pct(r.settings.review_at);
+  $("sW").value = pct(r.settings.w_rule);
+  drawThresholds();
 }
+// 拖动滑块时即时预览：按新标准，当前结果会怎么分栏
+function drawThresholds() {
+  let d = +$("sDel").value, v = +$("sRev").value; const w = +$("sW").value;
+  if (v >= d) { v = d - 1; $("sRev").value = v; }
+  $("sDelV").textContent = d; $("sRevV").textContent = v; $("sWV").textContent = `规则 ${w}% · Laya ${100 - w}%`;
+  const z = $("sZone").children;
+  z[0].style.flex = `0 0 ${v}%`; z[1].style.flex = `0 0 ${d - v}%`; z[2].style.flex = `0 0 ${100 - d}%`;
+  z[0].textContent = `建议保留 < ${v}`; z[1].textContent = `需要你看`; z[2].textContent = `删除 ≥ ${d}`;
+  if (!results || !results.items) { $("sPreview").textContent = "扫描之后，这里会显示按新标准当前结果会怎么分。"; return; }
+  const c = { delete: [0, 0], review: [0, 0], keep: [0, 0] };
+  results.items.forEach((it) => {
+    if (it.hidden || it.trashed || it.kind === "dupe") return;
+    let p = it.p;
+    if (it.laya && it.rule != null) { p = (w / 100) * it.rule + (1 - w / 100) * it.laya.delete; if (it.capped) p = Math.min(p, 0.6); }
+    const s = p * 100, rec = s >= d ? (it.capped ? "review" : "delete") : s >= v ? "review" : "keep";
+    c[rec][0]++; c[rec][1] += it.size;
+  });
+  $("sPreview").innerHTML = `按这个标准，当前结果会变成：<b style="color:var(--del)">建议删除 ${c.delete[0]} 项</b>（${gb(c.delete[1])}）· ` +
+    `<b style="color:var(--rev)">需要你看 ${c.review[0]} 项</b> · <b style="color:var(--keep)">建议保留 ${c.keep[0]} 项</b>（重复文件不算在内）`;
+}
+["sDel", "sRev", "sW"].forEach((id) => $(id).addEventListener("input", drawThresholds));
 $("openSettings").onclick = async () => {
   ruleMeta = await api("/api/rules");
   draft = JSON.parse(JSON.stringify(ruleMeta.rules));
   $("sErr").textContent = ""; drawSettings(); $("settings").hidden = false;
 };
-$("sCancel").onclick = () => { $("settings").hidden = true; };
+$("sCancel").onclick = $("sClose").onclick = () => { $("settings").hidden = true; };
 $("settings").addEventListener("click", (e) => {
   const d = e.target.dataset;
   if (e.target === $("settings")) { $("settings").hidden = true; return; }
@@ -724,7 +1199,7 @@ $("settings").addEventListener("click", (e) => {
   else if (d.ri !== undefined) draft.ignored.splice(+d.ri, 1);
   else if (d.rd !== undefined) delete draft.type_dest[d.rd];
   else return;
-  drawSettings();
+  readThresholds(); drawSettings();
 });
 function readThresholds() {
   draft.settings = { delete_at: +$("sDel").value / 100, review_at: +$("sRev").value / 100, w_rule: +$("sW").value / 100 };
@@ -737,6 +1212,7 @@ $("sDefaults").onclick = () => { draft.settings = { ...ruleMeta.defaults }; draw
 $("sSave").onclick = async () => {
   readThresholds();
   const r = await api("/api/rules", { rules: draft });
+  cfg = r.rules.settings;
   if (r.errors.length) { $("sErr").textContent = "有几项没保存：\n· " + r.errors.join("\n· "); draft = r.rules; drawSettings(); }
   else $("settings").hidden = true;
   if (results) await loadResults();
@@ -753,7 +1229,7 @@ if (location.hash.startsWith("#organize=")) {
   setMode("org");
 }
 
-poll();
+loadCfg().then(poll);
 </script>
 </body>
 </html>
