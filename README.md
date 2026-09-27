@@ -2,6 +2,10 @@
 
 # 盘算 Reckon
 
+<img alt="宣传片片段：吉祥物小盘挥着指挥棒，文件唱着歌飞进各自的文件夹，上方写着“AI 整理：文件自动归位”" src="docs/images/promo.gif" width="760">
+
+<sub>宣传片《小盘的大扫除》片段，画面、音乐都由代码逐帧绘制和合成</sub>
+
 **让本地决策模型先帮你把磁盘盘算一遍：哪些该删，哪些该留，东西该放哪。**
 
 Windows 磁盘清理 + 文件整理 · 规则 + [Laya](https://huggingface.co/convaiinnovations/laya) 本地决策模型 ·
@@ -14,10 +18,6 @@ Windows 磁盘清理 + 文件整理 · 规则 + [Laya](https://huggingface.co/co
 ![Local](https://img.shields.io/badge/100%25-本地运行-2f6f5e)
 ![Model](https://img.shields.io/badge/模型-Laya%20多语言-6b4fbb)
 ![License](https://img.shields.io/badge/License-MIT-yellow)
-
-<img alt="演示：清理时勾选重复文件和建议删除项移到回收站，整理时按现有分类给出去处、执行后一键撤销" src="docs/images/demo.gif" width="860">
-
-<sub>演示模式录制，文件都是虚构的，也没有真正改动任何文件</sub>
 
 </div>
 
@@ -38,6 +38,12 @@ Windows 磁盘清理 + 文件整理 · 规则 + [Laya](https://huggingface.co/co
 **每一项都告诉你为什么**，最后由你拍板。拿不准的一律放进「需要你看」，不替你冒险。
 
 ## 截图
+
+**实际操作**：清理时勾选重复文件和建议删除项移到回收站，整理时按现有分类给出去处、执行后一键撤销
+
+<div align="center">
+<img alt="演示：清理时勾选重复文件和建议删除项移到回收站，整理时按现有分类给出去处、执行后一键撤销" src="docs/images/demo.gif" width="860">
+</div>
 
 **清理**：每一项都有清理建议分、理由和判断依据，拿不准的放进「需要你看」
 

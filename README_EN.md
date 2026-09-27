@@ -2,6 +2,10 @@
 
 # Reckon 盘算
 
+<img alt="Promo clip: the mascot Xiaopan conducts with a baton while files sing and fly into their folders" src="docs/images/promo.gif" width="760">
+
+<sub>A clip from the promo film, drawn and scored frame by frame in code (captions in Chinese: “AI organizing: files find their way home”)</sub>
+
 **Let a local decision model reckon through your disk first: what to delete, what to keep, and where things belong.**
 
 Windows disk cleanup + file organizing · rules + the [Laya](https://huggingface.co/convaiinnovations/laya) local decision model ·
@@ -13,10 +17,6 @@ fully offline · deletes only to the Recycle Bin · every organize run can be un
 ![Windows](https://img.shields.io/badge/Windows-10%20%7C%2011-0078D6?logo=windows&logoColor=white)
 ![Local](https://img.shields.io/badge/100%25-offline-2f6f5e)
 ![License](https://img.shields.io/badge/License-MIT-yellow)
-
-<img alt="Demo: cleaning duplicates and suggested items into the Recycle Bin, then organizing a folder and undoing it" src="docs/images/demo.gif" width="860">
-
-<sub>Recorded in demo mode with made-up files; nothing on disk was touched. The UI is in Chinese.</sub>
 
 </div>
 
@@ -30,6 +30,12 @@ fully offline · deletes only to the Recycle Bin · every organize run can be un
   so it can tell lecture notes from a re-downloadable installer archive. (PDF text needs the source version with PyMuPDF;
   the exe judges PDFs by name, location and age only.)
 - **🔒 Local only**: the model runs on your machine; no file names or contents leave it.
+
+<div align="center">
+<img alt="Demo: cleaning duplicates and suggested items into the Recycle Bin, then organizing a folder and undoing it" src="docs/images/demo.gif" width="860">
+
+<sub>Recorded in demo mode with made-up files; nothing on disk was touched. The UI is in Chinese.</sub>
+</div>
 
 Unlike classic cleaners that only know caches and temp folders, Reckon combines location, type, age and content, and lets a decision
 model judge *"is this study material, or an installer you can download again?"* — every item says why, and anything uncertain goes to
