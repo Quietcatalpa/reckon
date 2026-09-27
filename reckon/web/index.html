@@ -286,6 +286,69 @@ input[type=range] { width: 100%; accent-color: var(--accent); margin: 0; }
   .it, .lhead { grid-template-columns: 22px 1fr 80px; } .it .verdict { grid-column: 2 / 4; } .it .acts, .lhead .hv, .lhead .ha { display: none; }
   .drive { min-width: 0; flex: 1; } .zones { width: 100%; } .wrap { padding: 16px; }
 }
+
+/* ================= 手绘主题 =================
+   和宣传片同一种画风，但界面要长时间看、要点来点去，所以：
+   线条是静止的（不抖）、只在卡片和按钮的外框上略带手绘感，列表和正文保持干净。 */
+:root {
+  --paper-tex: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='260' height='260'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 .42 0 0 0 0 .34 0 0 0 0 .26 0 0 0 .075 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+  --ink-line: rgba(58, 48, 43, .62); --ink-strong: #3a302b; --sticker: 3px 4px 0 rgba(46, 39, 36, .13);
+  --hand-r: 18px 22px 17px 24px / 22px 17px 24px 18px;   /* 四个角圆得不一样，像手画的 */
+  --cartoon: "STHupo", "YouYuan", var(--sans);
+}
+@media (prefers-color-scheme: dark) {
+  :root { --ink-line: rgba(230, 222, 210, .42); --ink-strong: #e6ded2; --sticker: 3px 4px 0 rgba(0, 0, 0, .35); }
+}
+body { background-image: var(--paper-tex); }
+.card, .list, .tile, .explain, .modal .box, .sec { border: 2px solid var(--ink-line); border-radius: var(--hand-r); box-shadow: var(--sticker); }
+.tile { border-width: 1.5px; }
+.tile.on { box-shadow: var(--sticker), 0 0 0 1.5px var(--c) inset; }
+.list { overflow: hidden; }
+.it, .oit, .dg { border-top-color: var(--line); }        /* 列表里的分隔线保持细、直 */
+h1, .step b, .modal h2, .doc h3 { font-family: var(--cartoon); font-weight: 400; letter-spacing: 1px; }
+h1 { font-size: 30px; }
+.step b { font-size: 19px; }
+.step .n { font-family: var(--cartoon); }
+/* 按钮：贴纸感，按下去会“压”一下 */
+button { border: 2px solid var(--ink-line); border-radius: 12px 14px 11px 15px / 14px 11px 15px 12px; transition: transform .08s, box-shadow .08s, background .15s; }
+button.primary, button.danger { border-color: var(--ink-strong); box-shadow: 2px 3px 0 var(--ink-strong); }
+button.primary:hover:not(:disabled), button.danger:hover:not(:disabled) { transform: translate(-1px, -1px); box-shadow: 3px 4px 0 var(--ink-strong); }
+button.primary:active:not(:disabled), button.danger:active:not(:disabled) { transform: translate(2px, 3px); box-shadow: 0 0 0 var(--ink-strong); }
+button.ghost, .icon, .modes button, .q, .src button, .toc button { box-shadow: none; }
+button.ghost, .icon, .src button { border-color: transparent; }
+.modes { border: 2px solid var(--ink-line); border-radius: 14px 12px 15px 11px / 11px 15px 12px 14px; }
+.modes button { border: 0; }
+.modes button.on { box-shadow: 1px 2px 0 var(--ink-line); }
+.q { border: 1.5px solid var(--ink-line); }
+.status { border: 2px solid var(--ink-line); box-shadow: 2px 2px 0 rgba(46, 39, 36, .08); }
+.drive { border-width: 2px; border-radius: var(--hand-r); }
+.badge { border: 1.5px solid currentColor; }
+.pbar, .progress, .meter { border: 1.5px solid var(--ink-line); height: 9px; border-radius: 99px; }
+.progress { height: 11px; }
+input[type=number], input[type=text], input[type=search], select { border: 2px solid var(--ink-line); border-radius: 12px 10px 13px 11px / 10px 13px 11px 12px; }
+.logo { border: 2px solid var(--ink-strong); box-shadow: 2px 3px 0 var(--ink-strong); }
+.toast { border-radius: var(--hand-r); display: none; align-items: center; gap: 12px; }
+.toast img { width: 52px; flex: none; }
+/* 小盘 */
+.mascot { position: absolute; pointer-events: none; user-select: none; }
+#intro { position: relative; padding-right: 230px; }
+#intro .mascot { right: 26px; bottom: 16px; width: 170px; }
+.orgcard { position: relative; padding-right: 210px; }
+.orgcard .mascot { right: 26px; top: 50%; transform: translateY(-50%); width: 150px; }
+.scanpan { display: flex; align-items: center; gap: 14px; margin-top: 12px; }
+.scanpan img { width: 76px; animation: bob 1.1s ease-in-out infinite; }
+@keyframes bob { 50% { transform: translateY(-6px) rotate(-3deg); } }
+.empty img { display: block; width: 130px; margin: 0 auto 12px; opacity: .95; }
+.tabnote img { width: 40px; vertical-align: middle; margin-right: 8px; }
+.modal .helppan { position: absolute; right: 70px; top: 10px; width: 92px; }
+/* 深色背景上，小盘的墨线（手臂、指挥棒）会看不见：加一圈淡淡的浅色光晕 */
+@media (prefers-color-scheme: dark) {
+  .mascot, .scanpan img, .empty img, .tabnote img, .toast img, .modal .helppan { filter: drop-shadow(0 0 1.5px rgba(245, 240, 230, .75)) drop-shadow(0 0 5px rgba(245, 240, 230, .18)); }
+}
+@media (max-width: 720px) {
+  #intro, .orgcard { padding-right: 22px; } #intro .mascot, .orgcard .mascot { display: none; }
+  .modal .helppan { display: none; }
+}
 </style>
 </head>
 <body>
@@ -324,10 +387,12 @@ input[type=range] { width: 100%; accent-color: var(--accent); margin: 0; }
       <button class="primary" id="scan">开始扫描</button>
     </div>
     <div class="progress" id="prog"><i></i></div>
+    <div class="scanpan" id="scanPan" hidden><img src="/img/pan-scan.png" alt=""><span class="sub">小盘正在一个个看文件…可以先去做别的，扫完会自动显示结果。</span></div>
     <div class="msg" id="msg">选好磁盘后点“开始扫描”。第一次大约 10 分钟（主要是 Laya 逐个判断），以后文件没变就沿用上次的判断，一两分钟。</div>
   </div>
 
   <div class="card" id="intro">
+    <img class="mascot" src="/img/pan-wave.png" alt="">
     <div class="step"><b>第一次用？三步就好</b></div>
     <div class="intro">
       <div class="s"><div class="n">1</div><b>扫描</b><p>选磁盘，点「开始扫描」。程序给每个候选文件打一个<b>清理建议分</b>，并写明理由。</p></div>
@@ -364,7 +429,8 @@ input[type=range] { width: 100%; accent-color: var(--accent); margin: 0; }
 </section>
 
 <section id="org" hidden>
-  <div class="card">
+  <div class="card orgcard">
+    <img class="mascot" src="/img/pan-conduct.png" alt="">
     <div class="step"><span class="n">①</span><b>要整理什么</b></div>
     <p class="desc">把乱的文件夹（比如「下载」「桌面」）交给盘算，它会给每个文件找一个去处。生成方案只是预览，你确认后才会移动，而且每次整理都能一键撤销。</p>
     <div class="srcs" id="srcs"></div>
@@ -511,6 +577,7 @@ input[type=range] { width: 100%; accent-color: var(--accent); margin: 0; }
 <div class="modal" id="help" hidden>
   <div class="box">
     <button class="ghost close" id="hClose" title="关闭">✕</button>
+    <img class="helppan" src="/img/pan-wave.png" alt="">
     <h2>说明</h2>
     <div class="sub">盘算是一个本地运行的磁盘清理 + 文件整理工具。下面解释页面上每样东西是什么意思。</div>
     <div class="toc" id="toc"></div>
@@ -640,8 +707,10 @@ async function api(path, body) {
   return r.json();
 }
 
-function toast(text) {
-  const t = $("toast"); t.textContent = text; t.style.display = "block";
+function toast(text, pic) {
+  const t = $("toast"); t.textContent = "";
+  if (pic) { const im = document.createElement("img"); im.src = `/img/pan-${pic}.png`; im.alt = ""; t.append(im); }
+  const sp = document.createElement("span"); sp.textContent = text; t.append(sp); t.style.display = "flex";
   clearTimeout(toast.h); toast.h = setTimeout(() => (t.style.display = "none"), 7000);
 }
 
@@ -739,6 +808,7 @@ async function poll() {
     const org = j.kind === "organize";
     const pr = $(org ? "oprog" : "prog");
     pr.classList.toggle("indet", running && !j.progress);
+    $("scanPan").hidden = !(running && j.kind === "scan");
     pr.firstElementChild.style.width = running ? (j.progress * 100).toFixed(1) + "%" : (j.phase === "done" ? "100%" : "0");
     if (j.message || j.error) $(org ? "omsg" : "msg").textContent = j.error ? "出错：" + j.error : j.message;
     if (was && !running) { if (org) await loadPlan(); else await loadResults(); }
@@ -815,7 +885,7 @@ function drawTiles() {
   $("tiles").innerHTML = TABS.map(([k, label]) =>
     `<div class="tile ${k === tab ? "on" : ""}" data-tab="${k}"><div class="h"><i></i>${label}<button class="q" type="button" data-tip="${esc(TAB_TIP[k])}">?</button></div>
       <b>${gb(sum(defs[k]))}</b><small>${cnt(defs[k])} 项</small></div>`).join("");
-  $("tabnote").textContent = TAB_NOTE[tab];
+  $("tabnote").innerHTML = (tab === "review" ? `<img src="/img/pan-think.png" alt="">` : "") + esc(TAB_NOTE[tab]);
 }
 
 // 这个分数是规则和模型加权算出来的排序依据，不是“删了没事”的概率，所以叫“清理建议分”并写明依据
@@ -888,7 +958,7 @@ function render() {
   drawTiles();
   const list = filtered();
   let html;
-  if (!list.length) html = `<div class="empty">这一栏没有内容</div>`;
+  if (!list.length) html = `<div class="empty"><img src="/img/pan-sleep.png" alt="">这一栏没有内容</div>`;
   else if (tab === "dupes") html = drawDupes(list);
   else html = HEAD + list.slice(0, shown).map(row).join("") +
     (list.length > shown ? `<button class="more" id="more">再显示 300 项（共 ${list.length} 项）</button>` : "");
@@ -973,7 +1043,7 @@ $("trash").onclick = async () => {
   r.failed.forEach((f) => selected.delete(f.id));
   let msg = `已移到回收站 ${r.done.length} 项。` + (r.demo ? DEMO_NOTE : "");
   if (r.failed.length) msg += `\n${r.failed.length} 项没处理：\n` + r.failed.slice(0, 5).map((f) => `· ${f.id != null ? results.items[f.id].name : ""}：${f.error}`).join("\n");
-  toast(msg); render();
+  toast(msg, r.done.length ? (r.failed.length ? "think" : "happy") : "think"); render();
 };
 
 /* ---------------- 整理 ---------------- */
@@ -1075,7 +1145,7 @@ function renderPlan() {
   const list = oFiltered();
   $("olist").innerHTML = list.length ? list.slice(0, oshown).map(orow).join("") +
     (list.length > oshown ? `<button class="more" id="omore">再显示 300 项（共 ${list.length} 项）</button>` : "")
-    : `<div class="empty">这一栏没有内容</div>`;
+    : `<div class="empty"><img src="/img/pan-sleep.png" alt="">这一栏没有内容</div>`;
   const n = list.filter((i) => odest[i.id] && !i.moved_to).length;
   $("oselall").textContent = `全选筛选结果（${n} 项）`;
   drawOsel();
@@ -1124,7 +1194,7 @@ $("orun").onclick = async () => {
   r.failed.forEach((f) => osel.delete(f.id));
   let msg = `已整理 ${r.done.length} 项。` + (r.demo ? DEMO_NOTE : "");
   if (r.failed.length) msg += `\n${r.failed.length} 项失败：\n` + r.failed.slice(0, 5).map((f) => `· ${f.id != null ? plan.items[f.id].name : ""}：${f.error}`).join("\n");
-  toast(msg); renderPlan(); loadHistory();
+  toast(msg, r.done.length ? (r.failed.length ? "think" : "happy") : "think"); renderPlan(); loadHistory();
 };
 
 async function loadHistory() {

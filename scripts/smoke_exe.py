@@ -63,6 +63,8 @@ def check(name, args, port, want_model, wait=240):
             raise RuntimeError("没带令牌也能访问接口")
         except urllib.error.HTTPError as e:
             assert e.code == 403, e.code
+        with urllib.request.urlopen(url + "img/pan-wave.png", timeout=5) as r:   # 界面插画打包进去了
+            assert r.read(8).startswith(b"\x89PNG"), "插画不是 PNG"
         deadline = time.time() + wait
         while True:
             st = json.loads(get(url + "api/state", token))

@@ -191,5 +191,30 @@ class ArchiveContentTest(Tmp):
         self.assertTrue(any("没有逐个核对内容" in r for r in reasons))
 
 
+# 8. 界面插画的静态文件入口不能被拿来读别的文件
+class ImageRouteTest(unittest.TestCase):
+    def setUp(self):
+        import http.client, threading
+        app = make_app()
+        self.srv = server.Server(("127.0.0.1", 0), server.make_handler(app, 0))
+        self.port = self.srv.server_address[1]
+        threading.Thread(target=self.srv.serve_forever, daemon=True).start()
+        self.conn = lambda: http.client.HTTPConnection("127.0.0.1", self.port, timeout=5)
+
+    def tearDown(self):
+        self.srv.shutdown(); self.srv.server_close()
+
+    def get(self, path):
+        c = self.conn(); c.request("GET", path, headers={"Host": "127.0.0.1:0"}); r = c.getresponse(); return r.status, r.read()
+
+    def test_mascot_is_served(self):
+        st, body = self.get("/img/pan-wave.png")
+        self.assertEqual(st, 200); self.assertTrue(body.startswith(b"\x89PNG"))
+
+    def test_other_files_are_refused(self):
+        for p in ("/img/../server.py", "/img/..%5Cserver.py", "/img/pan-wave.PNG", "/img/x.svg", "/img/"):
+            self.assertEqual(self.get(p)[0], 404, p)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -6,6 +6,7 @@
 import argparse
 import json
 import os
+import re
 import secrets
 import shutil
 import string
@@ -462,6 +463,15 @@ def make_handler(app, port):
                 with open(os.path.join(WEB_DIR, "index.html"), encoding="utf-8") as f:
                     html = f.read().replace("__TOKEN__", TOKEN)
                 self._send(200, html.encode("utf-8"), "text/html; charset=utf-8")
+            elif self.path.startswith("/img/"):
+                # 界面插画：只允许 web/img 目录里、名字只有小写字母数字和横线的 png，不能借机读别的文件
+                name = self.path[len("/img/"):]
+                fp = os.path.join(WEB_DIR, "img", name)
+                if re.fullmatch(r"[a-z0-9-]+\.png", name) and os.path.isfile(fp):
+                    with open(fp, "rb") as f:
+                        self._send(200, f.read(), "image/png")
+                else:
+                    self._send(404, {"error": "not found"})
             elif self.path == "/api/state":
                 with app.lock:
                     job = dict(app.job)
